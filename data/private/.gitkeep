@@ -1,0 +1,3 @@
+-- Keep this directory for local-only name mappings.
+-- Real names must NEVER be committed.
+-- Copy name_map.local.csv.example → name_map.local.csv on your machine.

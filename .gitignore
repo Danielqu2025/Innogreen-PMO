@@ -39,3 +39,10 @@ dist/
 *.bak
 *.log
 Proxxima.md
+
+# Local private mappings (real company names — never commit)
+data/private/**
+!data/private/.gitkeep
+!data/private/*.example
+*.local.csv
+name_map.local.csv

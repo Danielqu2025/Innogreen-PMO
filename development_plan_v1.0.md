@@ -60,29 +60,24 @@
 
 ### 0.3 阶段任务清单（来源：工作阶段划分.xlsx）
 
-Excel文件共包含**18个主要阶段**，**92条任务节点**：
+Excel文件共包含**8个主要阶段**，**107条任务节点**：
 
-| 序号 | 阶段名称 | 任务数量 | 关键度 |
-|------|----------|----------|--------|
-| 1 | 项目准入情况 | 1 | 🟢 |
-| 2 | 准入与信息报送 | 6 | 🔴 |
-| 3 | 项目前期审批 | 1 | 🔴 |
-| 4 | 项目设计 | 3 | 🟡 |
-| 5 | 安评及安设专篇 | 5 | 🔴 |
-| 6 | 环评 | 3 | 🔴 |
-| 7 | 卫评及卫评专篇 | 4 | 🔴 |
-| 8 | 装修施工审批 | 1 | 🟡 |
-| 9 | 项目及合同信息报送 | 5 | 🟡 |
-| 10 | 设计审查 | 3 | 🔴 |
-| 11 | 取证 | 2 | 🔴 |
-| 12 | 项目施工 | 1 | 🟡 |
-| 13 | 装修施工 | 4 | 🔴 |
-| 14 | 竣工验收 | 1 | 🟡 |
-| 15 | 工程验收 | 4 | 🔴 |
-| 16 | 试生产 | 4 | 🔴 |
-| 17 | 三同时验收 | 3 | 🔴 |
-| 18 | 正式投用 | 2 | 🟢 |
-| - | 各类服务协议 | 15+ | 🟢 |
+| 序号 | 阶段名称 | 任务数 | 关键度 | 说明 |
+|------|----------|--------|--------|------|
+| 0 | 初步意向 | 3 | 🟢 | 客户意向接触 |
+| 1 | 项目准入 | 9 | 🔴 | 准入评估与厂房租赁 |
+| 2 | 厂房改造项目前期审批准备 | 19 | 🔴 | 三评（安评/环评/卫评）及设计 |
+| 3 | 公用工程及服务类合同签定 | 39 | 🟡 | 9类服务协议 |
+| 4 | 厂房改造装修施工审批 | 13 | 🔴 | 审图、消防审查、施工许可 |
+| 5 | 项目施工及验收 | 13 | 🔴 | 装修施工、机电安装、竣工验收 |
+| 6 | 试生产及三同时验收 | 9 | 🔴 | 试生产与三同时验收 |
+| 7 | 正式投用阶段 | 1 | 🟢 | 正式投产投用 |
+
+> **任务编号**：采用层级编号（如 1.3.1 = 阶段1 > 一级任务3 > 二级任务1），保留Excel原始编码便于对照。
+
+**任务层级说明**：
+- 一级任务：如 2.1 项目设计、2.2 安评及安设专篇
+- 二级任务：如 2.1.1 项目团队对接与沟通、2.2.1 安全预评价报告编制定稿
 
 > **参考案例**：`Proxxima.md`（ExxonMobil项目进度计划，100任务，377天）
 > - 用途：英文术语参考、装修施工详细任务参考
@@ -108,15 +103,15 @@ Excel文件共包含**18个主要阶段**，**92条任务节点**：
 为 Innogreen 创新中心建立一套**「项目管理制度 + 内容知识库」数字底座**，让 17+ 家入驻企业（以及未来更多）能在统一的框架下推进项目落地，**沉淀运营 know-how**，支持 Daniel 团队从"房东+物业"升级为"合伙人式陪跑"。
 
 ### 1.2 范围（在）
-- **内容层**：基于现有Excel的18阶段 × 92 任务节点的标准化工序地图 + 避坑指南
-- **DB 层**：自建 SQLite 数据库，7张表结构化存储（阶段、任务、避坑、项目档案、项目进度、关联关系）
-- **Excel v2**：升级现有"工作阶段划分.xlsx"，拆分5个sheet
-- **CLI 工具集**：8个shell脚本，覆盖查询、录入、导出功能
+- **内容层**：基于Excel的8阶段 × 107任务节点的标准化工序地图 + 避坑指南
+- **DB 层**：自建 SQLite 数据库，7张表结构化存储（阶段、任务、依赖、避坑、项目档案、项目进度、关联关系）
+- **task_code**：新增字段保留Excel层级编号（如 1.3.1）
+- **CLI 工具集**：Python脚本，覆盖查询、录入、导出功能
 
 ### 1.3 不在范围（这版先不做）
-- ❌ Web 应用 / GUI（v3 再做）
-- ❌ 飞书机器人推送 / 自动提醒（v3 再做）
-- ❌ 多用户权限系统 / 登录认证（v3 再做）
+- ❌ Web 应用 / GUI（v1.3再做）
+- ❌ 飞书机器人推送 / 自动提醒（v1.4再做）
+- ❌ 多用户权限系统 / 登录认证（v1.4再做）
 - ❌ 实时协作（DB 用 SQLite 单写者）
 
 ### 1.4 验收定义（细化版）
@@ -170,7 +165,7 @@ WHERE pg.status = '卡点';
 
 | 阶段 | 产出 | 估时 | 依赖 | 验收标准 |
 |---|---|---|---|---|
-| **M1 内容核对** | 18阶段规范名对照表 + 92任务清单 | 半天 | - | Excel v2-Sheet1/2可验收 |
+| **M1 内容核对** | 8阶段规范名对照表 + 107任务清单 | 半天 | - | Excel / seed 可验收 |
 | **M2 Excel v2** | 5-sheet Excel v2 | 1天 | M1 | 5个sheet结构完整 |
 | **M3 DB设计** | 7张表schema + 索引 + 约束 + 触发器 | 半天 | M2 | schema.sql可执行 |
 | **M4 数据迁移** | CSV + ETL脚本 + 初始数据 | 半天 | M3 | 数据可查询 |
@@ -188,7 +183,7 @@ WHERE pg.status = '卡点';
 
 ```
 ┌─────────────┐
-│ stage_map   │ (18个阶段)
+│ stage_map   │ (8个阶段)
 │ 阶段定义表  │
 └──────┬──────┘
        │
@@ -231,6 +226,8 @@ WHERE pg.status = '卡点';
 ```
 
 ### 3.2 完整Schema定义
+
+> **2026-07-21 更新**：`audit_log` 表已移至独立文件 `sql/audit_log.sql`，v1.3 Web 应用使用。
 
 ```sql
 -- ============================================
@@ -484,242 +481,49 @@ END;
 
 ## 四、CLI工具规格说明
 
+> ⚠️ **2026-07-21 更新**：Shell 脚本（`.sh`）已全部替换为 **Python 脚本**（`.py`），Windows 兼容。
+> 详见 [CLAUDE.md](CLAUDE.md) 中的「Development Commands」章节。
+
 ### 4.1 工具清单
 
 | 序号 | 命令 | 功能 | 输入 | 输出 |
 |------|------|------|------|------|
-| 1 | query_stages.sh | 查询所有阶段 | --critical 🔴/🟡/🟢 | Markdown表格 |
-| 2 | query_projects.sh | 查询企业进度 | --status, --stage | JSON/表格 |
-| 3 | query_pitfalls.sh | 查询避坑指南 | --stage, --impact | Markdown卡片 |
-| 4 | query_critical_path.sh | 查询关键路径 | --project_id | Mermaid流程图 |
-| 5 | query_dependencies.sh | 查询任务依赖 | --task_id | 树形结构 |
-| 6 | add_project.sh | 录入企业档案 | 交互式/参数 | project_id |
-| 7 | add_pitfall.sh | 录入避坑指南 | 交互式/参数 | pitfall_id |
-| 8 | update_progress.sh | 更新项目进度 | --project, --task, --status | success/fail |
-| 9 | export_dashboard.sh | 导出进度仪表盘 | --output, --format | Excel/Markdown |
-| 10 | export_excel_sync.sh | DB→Excel同步 | --output | Excel文件 |
+| 1 | `python scripts/init_db.py` | 初始化数据库 | `--db-path`, `--excel` | 建库+导入 |
+| 2 | `python scripts/import_excel.py` | Excel→DB导入 | `--db`, `--excel` | 导入统计 |
+| 3 | `python scripts/verify_phase_a.py` | 数据校验 | - | 校验报告 |
 
 ### 4.2 详细规格
 
-#### 4.2.1 query_stages.sh
+### 4.2 init_db.py（数据库初始化）
 
 ```bash
-#!/bin/bash
-# 查询所有阶段或特定阶段
+# 基本用法：初始化数据库（幂等，自动备份）
+python scripts/init_db.py
 
-# 用法
-./query_stages.sh [--critical 🔴|🟡|🟢] [--stage-id <id>]
+# 指定数据库路径
+python scripts/init_db.py --db-path data/test.db
 
-# 输出格式：Markdown表格
-# | stage_id | stage_name | critical_path | default_days | 任务数 |
-# | 1 | 项目准入情况 | 🟢 | 5 | 1 |
-
-# 示例
-./query_stages.sh --critical 🔴
-# 输出所有关键阶段
-
-./query_stages.sh --stage-id 5
-# 输出阶段5的详细信息和关联任务
+# 初始化后导入 Excel 数据
+python scripts/init_db.py --excel 工作阶段划分.xlsx
 ```
 
-#### 4.2.2 query_projects.sh
+### 4.3 import_excel.py（Excel 导入）
 
 ```bash
-#!/bin/bash
-# 查询企业进度
-
-# 用法
-./query_projects.sh [--status <状态>] [--stage <阶段名>] [--building <楼栋>]
-
-# 输出格式：表格或JSON（--json参数）
-# --json时输出：[{"company": "朗盛", "stage": "装修施工", "status": "进行中", "progress": 60}]
-
-# 示例
-./query_projects.sh --status 卡点
-# 输出所有卡点企业
-
-./query_projects.sh --building F6d-1 --json
-# 输出F6d-1楼栋所有企业（JSON格式）
+# 导入 Excel 数据到现有数据库
+python scripts/import_excel.py --db data/innogreen_pmo.db --excel 工作阶段划分.xlsx
 ```
 
-#### 4.2.3 query_pitfalls.sh
+### 4.4 verify_phase_a.py（数据校验）
 
 ```bash
-#!/bin/bash
-# 查询避坑指南
-
-# 用法
-./query_pitfalls.sh --stage <阶段名> [--impact <影响等级>]
-
-# 输出格式：Markdown卡片
-# ## 🔴 极高影响避坑：没做安全预评价直接施工
-# - **错误做法**：没做安全预评价直接施工
-# - **合规做法**：应先做安评并通过安全条件审查
-# - **依据**：《建设项目安全设施设计管理办法》第十条
-# - **补救**：立即停工+委托补做+主动报告
-
-# 示例
-./query_pitfalls.sh --stage 安评
-# 输出安评阶段所有避坑
-
-./query_pitfalls.sh --stage 安评 --impact 极高
-# 只输出极高影响避坑
+# 运行 Phase A 门禁校验
+python scripts/verify_phase_a.py
 ```
 
-#### 4.2.4 query_critical_path.sh
+### 4.5 Web API（v1.3 新增）
 
-```bash
-#!/bin/bash
-# 查询项目关键路径
-
-# 用法
-./query_critical_path.sh --project-id <id> [--format mermaid|text]
-
-# 输出格式：Mermaid流程图或文本路径
-# mermaid格式：
-# graph TD
-#   A[项目准入] --> B[安评]
-#   B --> C{是否通过}
-#   C -->|是| D[环评]
-
-# 示例
-./query_critical_path.sh --project-id 1 --format mermaid
-# 输出Mermaid流程图
-```
-
-#### 4.2.5 add_project.sh
-
-```bash
-#!/bin/bash
-# 录入企业档案
-
-# 用法1：交互式
-./add_project.sh
-# 逐步提示输入所有必填字段
-
-# 用法2：参数式
-./add_project.sh \
-  --company "朗盛特殊化学品有限公司" \
-  --short-name "朗盛" \
-  --credit-code "91310000XXXX" \
-  --business-type "研发" \
-  --building "F6d-1" \
-  --floor "1" \
-  --area-m2 500
-
-# 输出：project_id
-# 错误：企业已存在 | 参数不合法 | 外键约束失败
-
-# 验证
-# - credit_code格式验证（18位统一社会信用代码）
-# - building必须存在于已知楼栋列表
-# - area_m2必须大于0
-```
-
-#### 4.2.6 add_pitfall.sh
-
-```bash
-#!/bin/bash
-# 录入避坑指南
-
-# 用法1：交互式
-./add_pitfall.sh
-# 逐步提示输入
-
-# 用法2：参数式
-./add_pitfall.sh \
-  --stage "安评" \
-  --wrong "没做安全预评价直接施工" \
-  --right "应先做安评并通过安全条件审查" \
-  --standard "《建设项目安全设施设计管理办法》第十条" \
-  --impact "极高" \
-  --error-index "极高" \
-  --trigger "工期紧+首次做化工中试" \
-  --remediation "立即停工+委托补做+主动报告" \
-  --source "历史复盘"
-
-# 输出：pitfall_id
-# 错误：字段缺失 | impact/error_index值不合法
-
-# 必填字段验证
-# --stage, --wrong, --right 为必填
-# --impact 必须是 极高/高/中/低
-# --error-index 必须是 极高/高/中/低/待观察
-```
-
-#### 4.2.7 update_progress.sh
-
-```bash
-#!/bin/bash
-# 更新项目进度
-
-# 用法
-./update_progress.sh \
-  --project-id <id> \
-  --task-id <id> \
-  --status <状态> \
-  [--blocker-note <说明>] \
-  [--assigned-to <负责人>]
-
-# 状态值：待开始/进行中/已完成/已跳过/卡点
-
-# 输出：success | error message
-
-# 示例
-./update_progress.sh --project-id 1 --task-id 15 --status 卡点 --blocker-note "安评报告被退回"
-# 将项目1的任务15标记为卡点
-
-# 自动行为
-# - status=已完成时，自动设置completed_at
-# - status=卡点时，自动设置project.project_status=卡点
-```
-
-#### 4.2.8 export_dashboard.sh
-
-```bash
-#!/bin/bash
-# 导出进度仪表盘
-
-# 用法
-./export_dashboard.sh \
-  --output <文件路径> \
-  [--format excel|markdown] \
-  [--include-all]
-
-# 输出格式
-
-## Excel格式（默认）
-包含多个sheet：
-- Sheet1: 企业总览
-- Sheet2: 阶段分布
-- Sheet3: 卡点清单
-- Sheet4: 关键路径
-- Sheet5: 避坑统计
-
-## Markdown格式
-输出为可读的Markdown报告
-
-# 示例
-./export_dashboard.sh --output "周报_20250721.xlsx" --format excel
-./export_dashboard.sh --output "周报.md" --format markdown
-```
-
-### 4.3 错误处理规范
-
-所有CLI工具应遵循统一的错误处理：
-
-```bash
-# 错误码定义
-ERR_INVALID_PARAM=1   # 参数不合法
-ERR_NOT_FOUND=2       # 记录不存在
-ERR_ALREADY_EXISTS=3  # 记录已存在
-ERR_DB_ERROR=4        # 数据库错误
-ERR_VALIDATION=5      # 验证失败
-
-# 统一错误输出格式
-echo "{\"error\": true, \"code\": $ERR_CODE, \"message\": \"$ERR_MSG\"}" >&2
-exit $ERR_CODE
-```
+v1.3 Web 应用提供 REST API，详见 [development_plan_v1.3_web_app.md](development_plan_v1.3_web_app.md)。
 
 ---
 
@@ -1089,6 +893,7 @@ innogreen-pmo/
 | v1.0 | 2026-07-21 | 初版归档 |
 | v1.1 | 2026-07-21 | 新增背景资料章节 |
 | v1.2 | 2026-07-21 | **重大重构**：数据模型7张表、CLI完整规格、验收标准细化 |
+| v1.2 补充 | 2026-07-21 | 新增 Phase A 门禁条件（v1.3 Web 前置）；脱敏数据约定 |
 
 ---
 
@@ -1159,27 +964,72 @@ UPDATE stage_map SET stage_name = '测试' WHERE stage_id = 1;
 
 | 决策点 | 确认结果 | 说明 |
 |--------|----------|------|
-| 避坑指南v1 | ✅只定义结构 | 不录入具体内容，v1.1再录入 |
-| 任务依赖关系 | ✅已从流程图提取 | 约40条依赖关系已定义 |
-| 17家企业v1 | ✅不录入 | 企业已运行，v1.1再补 |
+| 避坑指南v1 | ✅已录入4条样例 | 试点数据已入库 |
+| 任务依赖关系 | ✅已从流程图提取 | 64条依赖关系已定义 |
+| 17家企业v1 | ✅录入3家脱敏样例 | ENT-01/02/03 |
+| task_code字段 | ✅已增加 | 保留Excel层级编号 |
 
-### 12.2 现在可以开始
+### 12.2 Phase A 门禁（已通过 ✅）
 
-所有待确认事项已明确，**可以开始第1轮开发（M1）**：
+**验收时间：2026-07-21**
 
-M1任务：阶段/任务清单
-- 输出：18阶段规范名对照表 + 92任务完整清单
-- 交付物：Excel文件
+| # | 条件 | 验证结果 |
+|---|------|----------|
+| A1 | schema.sql 可一键建库（7表 + 索引 + 触发器） | ✅ 7表创建成功 |
+| A2 | 8阶段 + 107任务已导入 | ✅ 阶段8/任务107 |
+| A3 | 核心任务依赖已导入且方向校验通过 | ✅ 69条依赖，0自环 |
+| A4 | ≥2家脱敏企业 + 进度（含≥1卡点） | ✅ 3家，2卡点 |
+| A5 | 避坑结构就绪；内容可0或≥5条试点 | ✅ 4条避坑 |
+| A6 | Windows可运行（Python CLI优先） | ✅ 通过 |
 
-**准备好后请说"继续"或"1"开始第1轮。**
+**脱敏约定**：
+- 对外展示统一用编号（ENT-01…）；真名对照表**不进Git**
+- 对照文件：`data/private/name_map.local.csv`（需创建并加入 .gitignore）
+- 进度/阶段/卡点保持真实业务语义，只抹去可识别主体
+
+**Phase A 验收 SQL**：
+
+```sql
+-- A2: 验证数据导入
+SELECT COUNT(*) FROM stage_map;          -- 应返回 8
+SELECT COUNT(*) FROM task_detail;        -- 应返回 107
+SELECT COUNT(*) FROM task_dependency;   -- 应返回 69
+
+-- A3: 验证依赖无自环
+SELECT COUNT(*) FROM task_dependency WHERE task_id = depends_on;  -- 应返回 0
+
+-- A4: 验证样例数据
+SELECT company_name, project_status, progress_percent FROM project_profile;
+-- 应返回 ENT-01/ENT-02/ENT-03
+
+-- A4: 验证卡点
+SELECT p.company_name, t.task_name, pg.blocker_note
+FROM project_progress pg
+JOIN project_profile p ON pg.project_id = p.project_id
+JOIN task_detail t ON pg.task_id = t.task_id
+WHERE pg.status = '卡点';
+-- 应返回 2 条卡点记录
+
+-- A5: 验证避坑结构
+SELECT COUNT(*) FROM pitfall_guide;  -- 应返回 4
+```
+
+### 12.3 下一步
+
+**Phase A 已通过！** 可以开始 v1.3 Web 开发。
+
+👉 查看 [development_plan_v1.3_web_app.md](development_plan_v1.3_web_app.md)
 
 ---
 
-**v1.2 版本可开发性评估：95%**
+**v1.2 版本状态：✅ 已完成**
 
-主要改进：
-- ✅ 数据模型完整（7张表，含关联表）
-- ✅ CLI工具规格明确（10个命令，含输入输出）
-- ✅ 验收标准具体（10个测试用例）
-- ✅ 任务依赖已提取（40条）
-- ✅ 所有决策点已确认
+交付物：
+- ✅ 数据模型完整（7张表，含 task_code 字段）
+- ✅ 初始化脚本（Python，Windows兼容）
+- ✅ 8阶段 × 107任务已导入
+- ✅ 69条任务依赖关系
+- ✅ 3家脱敏样例企业 + 2卡点（阶段/任务已对齐）
+- ✅ project_code 字段 + 可重复 init_db
+- ✅ 4条避坑指南样例
+- ✅ audit_log 表结构（v1.3 Web 前置，`sql/audit_log.sql`）
