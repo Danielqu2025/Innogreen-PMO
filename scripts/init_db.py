@@ -159,7 +159,7 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         # 校验
         log("\nPhase A Data Verification:")
         checks = [
-            ("stages", "stage_map", 8),
+            ("stages", "stage_map", 10),
             ("tasks", "task_detail", 108),
             ("dependencies", "task_dependency", None),
             ("pitfalls", "pitfall_guide", 4),

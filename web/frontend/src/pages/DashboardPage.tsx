@@ -27,7 +27,7 @@ const statusColor: Record<string, string> = {
 };
 
 function StageBars({ byStage }: { byStage?: Record<string, number> }) {
-  const entries = Object.entries(byStage ?? {});
+  const entries = Object.entries(byStage ?? {}).filter(([, n]) => n > 0);
   if (entries.length === 0) {
     return <Typography.Text type="secondary">暂无阶段数据</Typography.Text>;
   }
@@ -102,7 +102,11 @@ export default function DashboardPage() {
     delayed_projects: 0,
     stalled_projects: 0,
   };
-  const byStatus = data.by_status ?? {};
+  const phases = data.phase_buckets ?? {
+    access_projects: 0,
+    construction_projects: 0,
+    operation_projects: 0,
+  };
 
   const todoItems = [
     ...blockers.map((b) => ({
@@ -127,31 +131,22 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        运营 Dashboard
-      </Typography.Title>
-      <Typography.Paragraph type="secondary">
-        看整体阶段分布、盯风险项目、跟进待办问题。
-      </Typography.Paragraph>
-
       {/* —— 1. 整体 —— */}
-      <Typography.Title level={4}>1. 整体情况：各项目在哪一阶段</Typography.Title>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>
+        1. 整体情况：各项目在哪一阶段
+      </Typography.Title>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
           <Statistic title="企业总数" value={data.total_projects} />
         </Col>
         <Col xs={12} sm={6}>
-          <Statistic title="进行中" value={byStatus["进行中"] ?? 0} />
+          <Statistic title="准入阶段项目" value={phases.access_projects} />
         </Col>
         <Col xs={12} sm={6}>
-          <Statistic
-            title="卡点"
-            value={byStatus["卡点"] ?? 0}
-            valueStyle={{ color: "#cf1322" }}
-          />
+          <Statistic title="建设阶段项目" value={phases.construction_projects} />
         </Col>
         <Col xs={12} sm={6}>
-          <Statistic title="已完成" value={byStatus["已完成"] ?? 0} />
+          <Statistic title="投运阶段项目" value={phases.operation_projects} />
         </Col>
       </Row>
 

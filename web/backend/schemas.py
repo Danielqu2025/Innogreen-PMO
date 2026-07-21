@@ -130,6 +130,7 @@ class DashboardProjectOut(BaseModel):
     project_id: int
     project_code: str
     company_name: str | None = None
+    current_stage_id: int | None = None
     current_stage_name: str | None = None
     progress_percent: int
     project_status: str
@@ -143,6 +144,13 @@ class DashboardCounts(BaseModel):
     stalled_projects: int = 0
 
 
+class DashboardPhaseBuckets(BaseModel):
+    """企业阶段大类：准入(0-1) / 建设(2-7) / 投运(8-9)。"""
+    access_projects: int = 0
+    construction_projects: int = 0
+    operation_projects: int = 0
+
+
 class DashboardSummary(BaseModel):
     total_projects: int
     by_status: dict[str, int]
@@ -151,6 +159,7 @@ class DashboardSummary(BaseModel):
     projects: list[DashboardProjectOut] = []
     delayed_tasks: list[DelayedTaskOut] = []
     counts: DashboardCounts = DashboardCounts()
+    phase_buckets: DashboardPhaseBuckets = DashboardPhaseBuckets()
 
 
 class PitfallOut(BaseModel):

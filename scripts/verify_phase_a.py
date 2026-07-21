@@ -30,8 +30,8 @@ for t in [
     counts[t] = c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
     print(f"{t}: {counts[t]}")
 
-if counts["stage_map"] != 8:
-    fail(f"stages want 8 got {counts['stage_map']}")
+if counts["stage_map"] != 10:
+    fail(f"stages want 10 got {counts['stage_map']}")
 if counts["task_detail"] != 108:
     fail(f"tasks want 108 got {counts['task_detail']}")
 if counts["project_profile"] < 2:
@@ -67,16 +67,38 @@ for r in blockers:
     print(dict(r))
     if r["project_status"] != "卡点":
         fail(f"{r['project_code']} has blocker but status={r['project_status']}")
-    if r["current_stage_id"] != r["blocker_stage"]:
-        fail(
-            f"{r['project_code']} stage {r['current_stage_id']} != blocker stage {r['blocker_stage']}"
-        )
     note = r["blocker_note"] or ""
     name = r["task_name"] or ""
     if "安评" in note and "安全" not in name and "安评" not in name:
         fail(f"安评 note on wrong task {r['task_code']}")
 if len(blockers) < 1:
     fail("no blockers")
+
+print("\n=== CURRENT STAGE (auto) ===")
+# 当前阶段 = 已触达任务(进行中/已完成/卡点/已跳过)所在阶段的最大 sort_order；排除阶段 4（公用工程）
+for r in c.execute(
+    """
+    SELECT pp.project_id, pp.project_code, pp.current_stage_id,
+           (
+             SELECT sm.stage_id
+             FROM project_progress pg
+             JOIN task_detail td ON td.task_id = pg.task_id
+             JOIN stage_map sm ON sm.stage_id = td.stage_id
+             WHERE pg.project_id = pp.project_id
+               AND pg.status IN ('进行中', '已完成', '卡点', '已跳过')
+               AND td.is_active = 1
+               AND td.stage_id != 4
+             ORDER BY sm.sort_order DESC
+             LIMIT 1
+           ) AS expected_stage
+    FROM project_profile pp
+    """
+):
+    print(dict(r))
+    if r["current_stage_id"] != r["expected_stage"]:
+        fail(
+            f"{r['project_code']} stage {r['current_stage_id']} != expected {r['expected_stage']}"
+        )
 
 bad = c.execute(
     """

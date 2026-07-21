@@ -31,7 +31,7 @@ def test_create_and_get_pitfall(operator_client):
     assert detail.status_code == 200
     assert detail.json()["impact_level"] == "高"
 
-    stage_pitfalls = operator_client.get("/api/ops/stages/2/pitfalls")
+    stage_pitfalls = operator_client.get("/api/ops/stages/3/pitfalls")
     assert any(p["pitfall_id"] == pid for p in stage_pitfalls.json())
 
     # Clean up

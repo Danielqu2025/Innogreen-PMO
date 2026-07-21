@@ -6,7 +6,7 @@ def test_operator_cannot_create_task(operator_client):
     r = operator_client.post(
         "/api/ops/tasks",
         json={
-            "stage_id": 2,
+            "stage_id": 3,
             "task_name": "不应创建",
             "owner": "客户主导",
             "parent_task_id": 18,
@@ -16,19 +16,19 @@ def test_operator_cannot_create_task(operator_client):
 
 
 def test_insert_under_22_renumbers_siblings(admin_client):
-    # 插入前：2.2.1 应为化工反应安全风险评估
-    before = admin_client.get("/api/ops/tasks", params={"stage_id": 2}).json()
+    # 插入前：3.2.1 应为化工反应安全风险评估
+    before = admin_client.get("/api/ops/tasks", params={"stage_id": 3}).json()
     by_code = {t["task_code"]: t for t in before}
-    assert "2.2.1" in by_code
-    old_221_name = by_code["2.2.1"]["task_name"]
-    old_221_id = by_code["2.2.1"]["task_id"]
-    assert by_code.get("2.2.2")
+    assert "3.2.1" in by_code
+    old_221_name = by_code["3.2.1"]["task_name"]
+    old_221_id = by_code["3.2.1"]["task_id"]
+    assert by_code.get("3.2.2")
 
-    # 在 2.2 下、插到原 2.2.1 之前
+    # 在 3.2 下、插到原 3.2.1 之前
     r = admin_client.post(
         "/api/ops/tasks",
         json={
-            "stage_id": 2,
+            "stage_id": 3,
             "task_name": "测试插入反应评估前置项",
             "owner": "客户委托第三方",
             "critical_path": "🔴",
@@ -39,22 +39,22 @@ def test_insert_under_22_renumbers_siblings(admin_client):
     )
     assert r.status_code == 201, r.text
     created = r.json()
-    assert created["task_code"] == "2.2.1"
+    assert created["task_code"] == "3.2.1"
     assert created["is_active"] == 1
 
     after = admin_client.get(
-        "/api/ops/tasks", params={"stage_id": 2, "include_inactive": True}
+        "/api/ops/tasks", params={"stage_id": 3, "include_inactive": True}
     ).json()
     by_code2 = {t["task_code"]: t for t in after}
-    assert by_code2["2.2.1"]["task_id"] == created["task_id"]
-    assert by_code2["2.2.2"]["task_id"] == old_221_id
-    assert by_code2["2.2.2"]["task_name"] == old_221_name
-    assert by_code2["2.2.3"]["task_name"]  # 原 2.2.2 顺移
+    assert by_code2["3.2.1"]["task_id"] == created["task_id"]
+    assert by_code2["3.2.2"]["task_id"] == old_221_id
+    assert by_code2["3.2.2"]["task_name"] == old_221_name
+    assert by_code2["3.2.3"]["task_name"]  # 原 3.2.2 顺移
 
 
 def test_deactivate_hides_from_default_list(admin_client):
-    # 找一个冷门任务停用（阶段7 正式投用）
-    tasks = admin_client.get("/api/ops/tasks", params={"stage_id": 7}).json()
+    # 找一个冷门任务停用（阶段9 正式投用）
+    tasks = admin_client.get("/api/ops/tasks", params={"stage_id": 9}).json()
     assert tasks
     tid = tasks[0]["task_id"]
     code = tasks[0]["task_code"]
@@ -63,11 +63,11 @@ def test_deactivate_hides_from_default_list(admin_client):
     assert r.status_code == 200
     assert r.json()["is_active"] == 0
 
-    visible = admin_client.get("/api/ops/tasks", params={"stage_id": 7}).json()
+    visible = admin_client.get("/api/ops/tasks", params={"stage_id": 9}).json()
     assert all(t["task_id"] != tid for t in visible)
 
     hidden = admin_client.get(
-        "/api/ops/tasks", params={"stage_id": 7, "include_inactive": True}
+        "/api/ops/tasks", params={"stage_id": 9, "include_inactive": True}
     ).json()
     assert any(t["task_id"] == tid and t["task_code"] == code for t in hidden)
 
@@ -82,8 +82,8 @@ def test_deactivate_changes_progress_denominator(admin_client):
     p = projects[0]
     before_pct = p["progress_percent"]
 
-    # 停用一个无人完成依赖的冷门任务（阶段7），分母变小 → 若分子不变则百分比不降
-    tasks = admin_client.get("/api/ops/tasks", params={"stage_id": 7}).json()
+    # 停用一个无人完成依赖的冷门任务（阶段9），分母变小 → 若分子不变则百分比不降
+    tasks = admin_client.get("/api/ops/tasks", params={"stage_id": 9}).json()
     tid = tasks[0]["task_id"]
     admin_client.post(f"/api/ops/tasks/{tid}/deactivate")
 

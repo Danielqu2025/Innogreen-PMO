@@ -255,6 +255,7 @@ export type DashboardProject = {
   project_id: number;
   project_code: string;
   company_name: string | null;
+  current_stage_id: number | null;
   current_stage_name: string | null;
   progress_percent: number;
   project_status: string;
@@ -285,6 +286,11 @@ export type DashboardSummary = {
     blocker_projects: number;
     delayed_projects: number;
     stalled_projects: number;
+  };
+  phase_buckets: {
+    access_projects: number;
+    construction_projects: number;
+    operation_projects: number;
   };
 };
 

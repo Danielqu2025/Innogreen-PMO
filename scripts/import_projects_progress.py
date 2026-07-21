@@ -232,60 +232,40 @@ def recalc_progress(conn: sqlite3.Connection, project_id: int) -> int:
 
     blocked = conn.execute(
         """
-        SELECT t.stage_id FROM project_progress p
+        SELECT 1 FROM project_progress p
         JOIN task_detail t ON t.task_id=p.task_id
         WHERE p.project_id=? AND p.status='卡点' AND t.is_active=1
-        ORDER BY t.sort_order LIMIT 1
+        LIMIT 1
         """,
         (project_id,),
     ).fetchone()
-    if blocked:
-        status, stage_id = "卡点", blocked[0]
-    else:
-        inprog = conn.execute(
-            """
-            SELECT 1 FROM project_progress p
-            JOIN task_detail t ON t.task_id=p.task_id
-            WHERE p.project_id=? AND p.status='进行中' AND t.is_active=1 LIMIT 1
-            """,
-            (project_id,),
-        ).fetchone()
-        status = "进行中" if inprog else "进行中"
-        stage_id = None
-        # set current_stage to first 进行中 or first 待开始 with progress
-        row = conn.execute(
-            """
-            SELECT t.stage_id FROM project_progress p
-            JOIN task_detail t ON t.task_id=p.task_id
-            WHERE p.project_id=? AND t.is_active=1
-              AND p.status IN ('进行中','卡点','待开始')
-            ORDER BY CASE p.status WHEN '卡点' THEN 0 WHEN '进行中' THEN 1 ELSE 2 END,
-                     t.sort_order
-            LIMIT 1
-            """,
-            (project_id,),
-        ).fetchone()
-        if row:
-            stage_id = row[0]
+    status = "卡点" if blocked else "进行中"
+    # 当前阶段 = 已触达任务所在阶段的最大 sort_order；排除公用工程阶段 4
+    row = conn.execute(
+        """
+        SELECT sm.stage_id
+        FROM project_progress p
+        JOIN task_detail t ON t.task_id = p.task_id
+        JOIN stage_map sm ON sm.stage_id = t.stage_id
+        WHERE p.project_id = ?
+          AND t.is_active = 1
+          AND t.stage_id != 4
+          AND p.status IN ('进行中', '已完成', '卡点', '已跳过')
+        ORDER BY sm.sort_order DESC
+        LIMIT 1
+        """,
+        (project_id,),
+    ).fetchone()
+    stage_id = row[0] if row else None
 
-    if stage_id is not None:
-        conn.execute(
-            """
-            UPDATE project_profile
-            SET progress_percent=?, project_status=?, current_stage_id=?
-            WHERE project_id=?
-            """,
-            (pct, status, stage_id, project_id),
-        )
-    else:
-        conn.execute(
-            """
-            UPDATE project_profile
-            SET progress_percent=?, project_status=?
-            WHERE project_id=?
-            """,
-            (pct, status, project_id),
-        )
+    conn.execute(
+        """
+        UPDATE project_profile
+        SET progress_percent=?, project_status=?, current_stage_id=?
+        WHERE project_id=?
+        """,
+        (pct, status, stage_id, project_id),
+    )
     return pct
 
 

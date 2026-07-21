@@ -38,6 +38,8 @@ def test_blocker_syncs_project_status(operator_client: TestClient, ent01):
 
     project = operator_client.get(f"/api/ops/projects/{pid}").json()
     assert project["project_status"] == "卡点"
+    # 卡点不再单独覆盖阶段；阶段按已触达最大阶段（此处仍为阶段 3 前期审批）
+    assert project["current_stage_id"] == 3
 
     blockers = operator_client.get("/api/ops/progress/blockers").json()
     assert any(b["project_id"] == pid and b["task_id"] == 20 for b in blockers)
@@ -56,6 +58,64 @@ def test_resolve_blocker_restores_in_progress(operator_client: TestClient, ent01
 
     project = operator_client.get(f"/api/ops/projects/{pid}").json()
     assert project["project_status"] == "进行中"
+
+
+def test_auto_stage_advances_on_later_stage_touch(operator_client: TestClient, ent01):
+    """出现下一阶段工作记录（进行中）→ 自动进入该阶段。"""
+    pid = ent01["project_id"]
+    assert ent01["project"]["current_stage_id"] == 3
+
+    response = operator_client.put(
+        f"/api/ops/projects/{pid}/tasks/72",  # stage 5 施工审批
+        json={"status": "进行中", "assigned_to": "测试"},
+    )
+    assert response.status_code == 200
+
+    project = operator_client.get(f"/api/ops/projects/{pid}").json()
+    assert project["current_stage_id"] == 5
+
+
+def test_auto_stage_ignores_utility_stage(operator_client: TestClient, ent01):
+    """仅有公用工程阶段进度时，不把当前阶段写成该阶段，仍停在已触达主链最大阶段。"""
+    pid = ent01["project_id"]
+
+    response = operator_client.put(
+        f"/api/ops/projects/{pid}/tasks/33",  # stage 4 公用工程
+        json={"status": "进行中", "assigned_to": "测试"},
+    )
+    assert response.status_code == 200
+
+    project = operator_client.get(f"/api/ops/projects/{pid}").json()
+    assert project["current_stage_id"] == 3
+
+
+def test_auto_stage_ignores_pending_status(operator_client: TestClient):
+    """待开始不计入触达；进行中才推进阶段。"""
+    create = operator_client.post(
+        "/api/ops/projects",
+        json={
+            "project_code": "ENT-PY-STAGE",
+            "company_name": "ENT-PY-STAGE",
+            "short_name": "PAS",
+        },
+    )
+    assert create.status_code == 201
+    pid = create.json()["project_id"]
+    assert create.json()["current_stage_id"] is None
+
+    pending = operator_client.put(
+        f"/api/ops/projects/{pid}/tasks/4",  # stage 1
+        json={"status": "待开始", "assigned_to": "测试"},
+    )
+    assert pending.status_code == 200
+    assert operator_client.get(f"/api/ops/projects/{pid}").json()["current_stage_id"] is None
+
+    active = operator_client.put(
+        f"/api/ops/projects/{pid}/tasks/4",
+        json={"status": "进行中", "assigned_to": "测试"},
+    )
+    assert active.status_code == 200
+    assert operator_client.get(f"/api/ops/projects/{pid}").json()["current_stage_id"] == 1
 
 
 def test_progress_invalid_status(operator_client: TestClient, ent01):

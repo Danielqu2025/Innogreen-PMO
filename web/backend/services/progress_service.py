@@ -4,11 +4,15 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from models import ProjectProfile, ProjectProgress, TaskDetail
+from models import ProjectProfile, ProjectProgress, StageMap, TaskDetail
 from schemas import ProgressOut, ProgressUpdate
 from services.audit import log_progress_update
 
 VALID_STATUSES = frozenset({"待开始", "进行中", "已完成", "已跳过", "卡点"})
+# 已触达：出现这些状态的任务进度即视为该阶段有工作记录
+STAGE_TOUCH_STATUSES = frozenset({"进行中", "已完成", "卡点", "已跳过"})
+# 公用工程及服务类合同签定：可与主链并行，不作为「当前阶段」（stage_id=4）
+AUTO_STAGE_EXCLUDE_IDS = frozenset({4})
 
 
 def _progress_snapshot(row: ProjectProgress) -> dict:
@@ -73,25 +77,47 @@ def recalculate_progress_percent(db: Session, project: ProjectProfile) -> None:
     project.progress_percent = min(100, max(0, round(100 * completed / total_tasks)))
 
 
-def sync_project_status(db: Session, project: ProjectProfile) -> None:
-    """卡点任务存在时同步 project_status 与 current_stage_id。"""
-    blockers = db.execute(
-        select(ProjectProgress, TaskDetail)
+def sync_current_stage(db: Session, project: ProjectProfile) -> None:
+    """按已触达任务自动推算 current_stage_id（取 sort_order 最大；排除阶段 3）。"""
+    stage_id = db.scalar(
+        select(StageMap.stage_id)
+        .select_from(ProjectProgress)
         .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
+        .join(StageMap, StageMap.stage_id == TaskDetail.stage_id)
         .where(
             ProjectProgress.project_id == project.project_id,
-            ProjectProgress.status == "卡点",
+            ProjectProgress.status.in_(STAGE_TOUCH_STATUSES),
             TaskDetail.is_active == 1,
+            TaskDetail.stage_id.notin_(AUTO_STAGE_EXCLUDE_IDS),
         )
-        .order_by(TaskDetail.sort_order)
-    ).all()
+        .order_by(StageMap.sort_order.desc())
+        .limit(1)
+    )
+    project.current_stage_id = stage_id
 
-    if blockers:
+
+def sync_project_status(db: Session, project: ProjectProfile) -> None:
+    """卡点同步 project_status；current_stage_id 按已触达阶段自动推算。"""
+    has_blocker = (
+        db.scalar(
+            select(func.count())
+            .select_from(ProjectProgress)
+            .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
+            .where(
+                ProjectProgress.project_id == project.project_id,
+                ProjectProgress.status == "卡点",
+                TaskDetail.is_active == 1,
+            )
+        )
+        or 0
+    ) > 0
+
+    if has_blocker:
         project.project_status = "卡点"
-        _, blocker_task = blockers[0]
-        project.current_stage_id = blocker_task.stage_id
     elif project.project_status == "卡点":
         project.project_status = "进行中"
+
+    sync_current_stage(db, project)
 
 
 def upsert_progress(

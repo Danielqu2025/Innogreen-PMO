@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from models import ProjectProfile, StageMap, TaskDetail
 from schemas import TaskCreate, TaskOut, TaskUpdate
 from services.audit import log_action
-from services.progress_service import recalculate_progress_percent
+from services.progress_service import recalculate_progress_percent, sync_project_status
 
 VALID_CRITICAL = frozenset({"🔴", "🟡", "🟢"})
 
@@ -85,6 +85,7 @@ def _shift_sibling_codes(
 def _recalc_all_progress(db: Session) -> None:
     for project in db.execute(select(ProjectProfile)).scalars().all():
         recalculate_progress_percent(db, project)
+        sync_project_status(db, project)
 
 
 def create_task(

@@ -5,16 +5,16 @@
 -- 日期: 2026-07-21（审核修复：阶段/卡点/状态对齐）
 -- ============================================
 
--- ENT-01: 阶段2 前期审批，安评卡点
+-- ENT-01: 阶段3 前期审批，安评卡点
 INSERT INTO project_profile (
   project_code, company_name, short_name, business_type, building,
   current_stage_id, project_status, progress_percent, notes
 ) VALUES (
   'ENT-01', 'ENT-01', 'ENT-01', '研发', 'F6d-1',
-  2, '卡点', 12, '前期审批中，安全预评价报告待专家评审'
+  3, '卡点', 12, '前期审批中，安全预评价报告待专家评审'
 );
 
--- 阶段0–1 已完成 + 阶段2 部分完成；卡在 2.2.2（安全预评价报告编制定稿）
+-- 阶段0–2 已完成 + 阶段3 部分完成；卡在 3.2.2（安全预评价报告编制定稿）
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, completed_at) VALUES
 (1, 1, '已完成', '张三', '2026-06-01'),
 (1, 2, '已完成', '张三', '2026-06-10'),
@@ -38,13 +38,13 @@ INSERT INTO project_progress (project_id, task_id, status, assigned_to, complete
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, blocker_note) VALUES
 (1, 19, '卡点', '李四', '安评报告等待专家评审，预计下周完成');
 
--- ENT-02: 阶段4 施工审批，设计审查卡点
+-- ENT-02: 阶段5 施工审批，设计审查卡点
 INSERT INTO project_profile (
   project_code, company_name, short_name, business_type, building,
   current_stage_id, project_status, progress_percent, notes
 ) VALUES (
   'ENT-02', 'ENT-02', 'ENT-02', '中试', 'F6a-3',
-  4, '卡点', 55, '施工审批中，审图周期延长'
+  5, '卡点', 55, '施工审批中，审图周期延长'
 );
 
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, completed_at) VALUES
@@ -67,13 +67,13 @@ INSERT INTO project_progress (project_id, task_id, status, assigned_to, complete
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, blocker_note) VALUES
 (2, 78, '卡点', '郑一', '审图周期延长，预计延迟2周');
 
--- ENT-03: 阶段6 试生产，顺利进行
+-- ENT-03: 阶段7 试生产准备，顺利进行
 INSERT INTO project_profile (
   project_code, company_name, short_name, business_type, building,
   current_stage_id, project_status, progress_percent, notes
 ) VALUES (
   'ENT-03', 'ENT-03', 'ENT-03', '小规模生产', 'F6d-1',
-  6, '进行中', 48, '试生产方案编制中'
+  7, '进行中', 48, '试生产方案编制中'
 );
 
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, completed_at) VALUES
@@ -171,9 +171,9 @@ INSERT INTO pitfall_guide (
   '补充交底+安全培训', '安全事故案例'
 );
 
--- 阶段-避坑关联（stage_id 对齐 8 阶段）
+-- 阶段-避坑关联
 INSERT INTO stage_pitfall_ref (stage_id, pitfall_id, ref_type) VALUES
-(2, 1, '常见'),
-(2, 2, '常见'),
-(4, 3, '常见'),
-(5, 4, '偶尔');
+(3, 1, '常见'),
+(3, 2, '常见'),
+(5, 3, '常见'),
+(6, 4, '偶尔');

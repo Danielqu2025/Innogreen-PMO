@@ -210,13 +210,19 @@ export default function ProjectFormPage() {
           <Form.Item name="project_status" label="项目状态">
             <Select options={PROJECT_STATUSES.map((s) => ({ label: s, value: s }))} />
           </Form.Item>
-          <Form.Item name="current_stage_id" label="当前阶段">
+          <Form.Item
+            name="current_stage_id"
+            label="当前阶段"
+            extra="默认由任务进度自动推算（排除公用工程阶段）；可临时覆盖，下次更新任务进度时会重算"
+          >
             <Select
               allowClear
-              options={stages.map((s) => ({
-                label: s.stage_name,
-                value: s.stage_id,
-              }))}
+              options={stages
+                .filter((s) => s.stage_id !== 4)
+                .map((s) => ({
+                  label: `${s.stage_id}. ${s.stage_name}`,
+                  value: s.stage_id,
+                }))}
             />
           </Form.Item>
           <Form.Item name="notes" label="备注">

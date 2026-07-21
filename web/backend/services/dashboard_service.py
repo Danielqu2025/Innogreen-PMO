@@ -10,6 +10,7 @@ from models import ProgressJournal, ProjectProgress, ProjectProfile, StageMap, T
 from schemas import (
     BlockerOut,
     DashboardCounts,
+    DashboardPhaseBuckets,
     DashboardProjectOut,
     DashboardSummary,
     DelayedTaskOut,
@@ -19,7 +20,10 @@ from schemas import (
 STALL_DAYS = 14
 DONE_STATUSES = frozenset({"已完成", "已跳过"})
 # Dashboard 阶段分布与阶段地图一致，但不含「公用工程及服务类合同签定」
-DASHBOARD_EXCLUDE_STAGE_IDS = frozenset({3})
+DASHBOARD_EXCLUDE_STAGE_IDS = frozenset({4})
+ACCESS_STAGE_IDS = frozenset({0, 1})
+CONSTRUCTION_STAGE_IDS = frozenset({2, 3, 4, 5, 6, 7})
+OPERATION_STAGE_IDS = frozenset({8, 9})
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -55,15 +59,25 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
 
     by_status: dict[str, int] = {}
     by_stage: dict[str, int] = {s.stage_name: 0 for s in chart_stages}
+    access_n = construction_n = operation_n = 0
     for p in projects:
         by_status[p.project_status] = by_status.get(p.project_status, 0) + 1
-        if p.current_stage_id and p.current_stage_id not in DASHBOARD_EXCLUDE_STAGE_IDS:
-            name = stage_names.get(p.current_stage_id) or str(p.current_stage_id)
+        sid = p.current_stage_id
+        if sid is not None and sid not in DASHBOARD_EXCLUDE_STAGE_IDS:
+            name = stage_names.get(sid) or str(sid)
             if name in by_stage:
                 by_stage[name] = by_stage[name] + 1
             else:
                 by_stage[name] = 1
+        if sid in ACCESS_STAGE_IDS:
+            access_n += 1
+        elif sid in CONSTRUCTION_STAGE_IDS:
+            construction_n += 1
+        elif sid in OPERATION_STAGE_IDS:
+            operation_n += 1
 
+    # 阶段分布：隐去项目数为 0 的阶段（保持 sort_order）
+    by_stage = {k: v for k, v in by_stage.items() if v > 0}
     # blockers
     blocker_rows = db.execute(
         select(ProjectProgress, ProjectProfile, TaskDetail)
@@ -156,6 +170,7 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
                 project_id=p.project_id,
                 project_code=p.project_code,
                 company_name=p.company_name,
+                current_stage_id=p.current_stage_id,
                 current_stage_name=stage_name,
                 progress_percent=p.progress_percent or 0,
                 project_status=p.project_status,
@@ -168,6 +183,16 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
             )
         )
 
+    # 项目清单：阶段从后到前；同阶段进度高→低
+    stage_sort = {s.stage_id: s.sort_order for s in stages}
+
+    def _project_sort_key(row: DashboardProjectOut) -> tuple:
+        sid = row.current_stage_id
+        order = stage_sort.get(sid, -1) if sid is not None else -1
+        return (-order, -(row.progress_percent or 0), row.project_code)
+
+    project_outs.sort(key=_project_sort_key)
+
     return DashboardSummary(
         total_projects=len(projects),
         by_status=by_status,
@@ -179,5 +204,10 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
             blocker_projects=len(blocker_project_ids),
             delayed_projects=len(delayed_project_ids),
             stalled_projects=len(stalled_project_ids),
+        ),
+        phase_buckets=DashboardPhaseBuckets(
+            access_projects=access_n,
+            construction_projects=construction_n,
+            operation_projects=operation_n,
         ),
     )
