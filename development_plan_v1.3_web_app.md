@@ -4,6 +4,10 @@
 > 状态：**Daniel 决策已确认**（含前端：React + Ant Design）  
 > 前置文档：development_plan_v1.0.md（正文版本为 **v1.2 CLI/数据底座**）  
 > 修订原因：原 v1.3 过早扩大用户范围、缺少验收/安全/部署；本修订稿收敛范围并补齐工程缺口。
+>
+> **勘误（2026-07-21，实现已落地）**：鉴权已从文中规划的 Bearer `PMO_API_TOKEN` 演进为
+> **会话 cookie + bcrypt + 三角色（admin/operator/viewer）+ 用户表**。下文 §5 仍保留历史
+> Token 叙述作决策背景；以 `web/README.md`、`web/.env.example` 与代码为准。Phase C3 已完成。
 
 ---
 

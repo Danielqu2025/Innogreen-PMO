@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
-from deps import require_token
+from deps import WriteUser, get_current_user
 from models import (
     PitfallGuide,
     ProjectProgress,
@@ -18,16 +18,30 @@ from schemas import (
     CriticalPathOut,
     DashboardSummary,
     PitfallOut,
+    PitfallCreate,
     ProgressOut,
+    ProgressUpdate,
+    ProjectCreate,
     ProjectOut,
+    ProjectUpdate,
     StageOut,
     TaskDependencyOut,
     TaskOut,
-    WriteStubIn,
 )
 from services.critical_path import build_critical_path, get_project_or_none
+from services.pitfall_service import create_pitfall
+from services.progress_service import upsert_progress
+from services.project_service import ConflictError, create_project, update_project
 
-router = APIRouter(prefix="/api/ops", dependencies=[Depends(require_token)])
+router = APIRouter(prefix="/api/ops", dependencies=[Depends(get_current_user)])
+
+
+def _client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+def _user_agent(request: Request) -> str | None:
+    return request.headers.get("user-agent")
 
 
 def _project_out(p: ProjectProfile) -> ProjectOut:
@@ -198,6 +212,33 @@ def list_projects(
     return [_project_out(p) for p in projects]
 
 
+@router.post("/projects", response_model=ProjectOut, status_code=201)
+def create_project_endpoint(
+    body: ProjectCreate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> ProjectOut:
+    try:
+        return create_project(
+            db,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
+        ) from e
+
+
 @router.get("/projects/{project_id}", response_model=ProjectOut)
 def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectOut:
     p = get_project_or_none(db, project_id)
@@ -207,6 +248,35 @@ def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectOut:
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
         )
     return _project_out(p)
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectOut)
+def update_project_endpoint(
+    project_id: int,
+    body: ProjectUpdate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> ProjectOut:
+    try:
+        return update_project(
+            db,
+            project_id,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
+        ) from e
 
 
 @router.get("/projects/{project_id}/progress", response_model=list[ProgressOut])
@@ -249,6 +319,40 @@ def project_critical_path(project_id: int, db: Session = Depends(get_db)) -> Cri
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
         )
     return build_critical_path(db, p)
+
+
+@router.put(
+    "/projects/{project_id}/tasks/{task_id}",
+    response_model=ProgressOut,
+)
+def update_project_task_progress(
+    project_id: int,
+    task_id: int,
+    body: ProgressUpdate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> ProgressOut:
+    try:
+        return upsert_progress(
+            db,
+            project_id,
+            task_id,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
+        ) from e
 
 
 @router.get("/progress/blockers", response_model=list[BlockerOut])
@@ -295,6 +399,28 @@ def list_pitfalls(
     return [PitfallOut.model_validate(p) for p in db.execute(query).scalars().all()]
 
 
+@router.post("/pitfalls", response_model=PitfallOut, status_code=201)
+def create_pitfall_endpoint(
+    body: PitfallCreate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> PitfallOut:
+    try:
+        return create_pitfall(
+            db,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
+        ) from e
+
+
 @router.get("/pitfalls/{pitfall_id}", response_model=PitfallOut)
 def get_pitfall(pitfall_id: int, db: Session = Depends(get_db)) -> PitfallOut:
     p = db.get(PitfallGuide, pitfall_id)
@@ -328,13 +454,16 @@ def stage_pitfalls(stage_id: int, db: Session = Depends(get_db)) -> list[Pitfall
 @router.get("/dashboard/summary", response_model=DashboardSummary)
 def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     projects = db.execute(select(ProjectProfile)).scalars().all()
+    stage_names = {
+        s.stage_id: s.stage_name
+        for s in db.execute(select(StageMap)).scalars().all()
+    }
     by_status: dict[str, int] = {}
     by_stage: dict[str, int] = {}
     for p in projects:
         by_status[p.project_status] = by_status.get(p.project_status, 0) + 1
         if p.current_stage_id:
-            stage = db.get(StageMap, p.current_stage_id)
-            name = stage.stage_name if stage else str(p.current_stage_id)
+            name = stage_names.get(p.current_stage_id) or str(p.current_stage_id)
             by_stage[name] = by_stage.get(name, 0) + 1
     blockers = list_blockers(db)
     return DashboardSummary(
@@ -342,19 +471,6 @@ def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
         by_status=by_status,
         by_stage=by_stage,
         blockers=blockers,
-    )
-
-
-@router.post("/_write-guard")
-def write_guard_stub(_body: WriteStubIn) -> dict:
-    """Phase B: write not enabled; router-level auth still applies (B-T6)."""
-    raise HTTPException(
-        501,
-        detail={
-            "error": True,
-            "code": "ERR_NOT_IMPLEMENTED",
-            "message": "写入接口在 Phase C 开放",
-        },
     )
 
 

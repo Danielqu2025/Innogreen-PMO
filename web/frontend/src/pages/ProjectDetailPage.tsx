@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { Alert, Descriptions, Steps, Table, Tag, Typography } from "antd";
-import { useParams } from "react-router-dom";
+import { Alert, Button, Descriptions, Space, Steps, Table, Tag, Typography } from "antd";
+import { Link, useParams } from "react-router-dom";
 import {
   api,
   type CriticalPath,
   type Progress,
   type Project,
 } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const statusColor: Record<string, string> = {
   卡点: "error",
@@ -25,6 +26,7 @@ function stepStatus(s: string): "wait" | "process" | "finish" | "error" {
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
+  const { canWrite } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [cp, setCp] = useState<CriticalPath | null>(null);
@@ -54,7 +56,16 @@ export default function ProjectDetailPage() {
 
   return (
     <div>
-      <Typography.Title level={3}>{project.project_code}</Typography.Title>
+      <Space style={{ marginBottom: 8 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {project.project_code}
+        </Typography.Title>
+        {canWrite && (
+          <Link to={`/ops/projects/${id}/edit`}>
+            <Button size="small">编辑</Button>
+          </Link>
+        )}
+      </Space>
       <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
         <Descriptions.Item label="状态">
           <Tag color={statusColor[project.project_status]}>{project.project_status}</Tag>
@@ -107,6 +118,21 @@ export default function ProjectDetailPage() {
           },
           { title: "负责人", dataIndex: "assigned_to", width: 100 },
           { title: "卡点说明", dataIndex: "blocker_note" },
+          ...(canWrite
+            ? [
+                {
+                  title: "操作",
+                  width: 80,
+                  render: (_: unknown, row: Progress) => (
+                    <Link to={`/ops/projects/${id}/tasks/${row.task_id}`}>
+                      <Button type="link" size="small">
+                        更新
+                      </Button>
+                    </Link>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </div>

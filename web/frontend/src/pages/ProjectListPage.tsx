@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Alert, Input, Select, Space, Table, Tag, Typography } from "antd";
+import { Alert, Button, Input, Select, Space, Table, Tag, Typography } from "antd";
 import { Link } from "react-router-dom";
 import { api, type Project } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const statusColor: Record<string, string> = {
   卡点: "error",
@@ -11,6 +12,7 @@ const statusColor: Record<string, string> = {
 };
 
 export default function ProjectListPage() {
+  const { canWrite } = useAuth();
   const [rows, setRows] = useState<Project[]>([]);
   const [status, setStatus] = useState<string | undefined>();
   const [q, setQ] = useState("");
@@ -32,6 +34,11 @@ export default function ProjectListPage() {
     <div>
       <Typography.Title level={3}>企业列表</Typography.Title>
       <Space wrap style={{ marginBottom: 16 }}>
+        {canWrite && (
+          <Link to="/ops/projects/new">
+            <Button type="primary">新增企业</Button>
+          </Link>
+        )}
         <Select
           allowClear
           placeholder="状态筛选"

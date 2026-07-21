@@ -36,27 +36,41 @@ def log_action(
         created_at=datetime.now().isoformat(),
     )
     db.add(audit)
-    db.commit()
-    db.refresh(audit)
+    db.flush()
     return audit.audit_id
 
 
-def log_project_create(db: Session, actor: str, project_id: int, data: dict) -> int:
+def log_project_create(
+    db: Session,
+    actor: str,
+    project_id: int,
+    data: dict,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> int:
     """记录创建企业"""
-    return log_action(db, actor, "CREATE", "projects", project_id, payload=data)
+    return log_action(
+        db, actor, "CREATE", "projects", project_id, payload=data,
+        ip_address=ip_address, user_agent=user_agent,
+    )
 
 
 def log_project_update(
-    db: Session, actor: str, project_id: int, before: dict, after: dict
+    db: Session,
+    actor: str,
+    project_id: int,
+    before: dict,
+    after: dict,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> int:
     """记录更新企业"""
     return log_action(
-        db,
-        actor,
-        "UPDATE",
-        "projects",
-        project_id,
+        db, actor, "UPDATE", "projects", project_id,
         payload={"before": before, "after": after},
+        ip_address=ip_address, user_agent=user_agent,
     )
 
 
@@ -67,17 +81,63 @@ def log_progress_update(
     task_id: int,
     before: dict | None = None,
     after: dict | None = None,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> int:
     """记录更新进度"""
     return log_action(
-        db,
-        actor,
-        "UPDATE",
-        "progress",
+        db, actor, "UPDATE", "progress",
         payload={"project_id": project_id, "task_id": task_id, "before": before, "after": after},
+        ip_address=ip_address, user_agent=user_agent,
     )
 
 
-def log_pitfall_create(db: Session, actor: str, pitfall_id: int, data: dict) -> int:
+def log_pitfall_create(
+    db: Session,
+    actor: str,
+    pitfall_id: int,
+    data: dict,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> int:
     """记录创建避坑"""
-    return log_action(db, actor, "CREATE", "pitfalls", pitfall_id, payload=data)
+    return log_action(
+        db, actor, "CREATE", "pitfalls", pitfall_id, payload=data,
+        ip_address=ip_address, user_agent=user_agent,
+    )
+
+
+def log_user_create(
+    db: Session,
+    actor: str,
+    user_id: int,
+    data: dict,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> int:
+    """记录创建用户"""
+    return log_action(
+        db, actor, "CREATE", "users", user_id, payload=data,
+        ip_address=ip_address, user_agent=user_agent,
+    )
+
+
+def log_user_update(
+    db: Session,
+    actor: str,
+    user_id: int,
+    before: dict,
+    after: dict,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> int:
+    """记录更新用户（角色/启用状态等；不含密码明文）"""
+    return log_action(
+        db, actor, "UPDATE", "users", user_id,
+        payload={"before": before, "after": after},
+        ip_address=ip_address, user_agent=user_agent,
+    )

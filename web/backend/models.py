@@ -134,3 +134,17 @@ class AuditLog(Base):
     ip_address: Mapped[str | None] = mapped_column(Text)
     user_agent: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text)
+
+
+class User(Base):
+    """用户表 - Phase C 鉴权（账号密码 + 三角色）"""
+    __tablename__ = "users"
+
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(Text, nullable=False, default="operator")
+    is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[str | None] = mapped_column(Text)

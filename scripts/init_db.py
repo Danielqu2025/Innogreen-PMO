@@ -114,6 +114,10 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         exec_sql_file(cursor, SQL_DIR / "audit_log.sql", required=False)
         log("Audit log table created")
 
+        log("Creating users table...")
+        exec_sql_file(cursor, SQL_DIR / "users.sql", required=False)
+        log("Users table created")
+
         log("Creating indexes...")
         exec_sql_file(cursor, SQL_DIR / "indexes.sql", required=False)
         log("Indexes created")

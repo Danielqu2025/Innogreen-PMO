@@ -1,8 +1,17 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { getToken } from "../api/client";
+import { Spin } from "antd";
+import { useAuth } from "./AuthContext";
 
 export default function RequireAuth() {
-  if (!getToken()) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+        <Spin />
+      </div>
+    );
+  }
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
   return <Outlet />;

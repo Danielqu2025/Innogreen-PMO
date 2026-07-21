@@ -137,22 +137,26 @@ class ErrorBody(BaseModel):
 
 
 # =============================================
-# Phase C 写入 Schema（预留）
+# Phase C 写入 Schema
 # =============================================
 
 class ProjectCreate(BaseModel):
     """创建企业档案 - Phase C"""
-    project_code: str
-    company_name: str
+    project_code: str = Field(min_length=1)
+    company_name: str = Field(min_length=1)
+    short_name: str | None = None
     business_type: str | None = None
     building: str | None = None
+    notes: str | None = None
 
 
 class ProjectUpdate(BaseModel):
-    """更新企业档案 - Phase C"""
+    """更新企业档案 - Phase C（progress_percent 仅由任务进度回写，不可手改）"""
+    short_name: str | None = None
+    business_type: str | None = None
+    building: str | None = None
     project_status: str | None = None
     current_stage_id: int | None = None
-    progress_percent: int | None = None
     notes: str | None = None
 
 
@@ -164,12 +168,49 @@ class ProgressUpdate(BaseModel):
 
 
 class PitfallCreate(BaseModel):
-    """创建避坑指南 - Phase C"""
-    stage_ref: str
-    wrong_action: str
-    right_action: str
+    """创建避坑指南 - Phase C3"""
+    stage_ref: str = Field(min_length=1)
+    wrong_action: str = Field(min_length=1)
+    right_action: str = Field(min_length=1)
+    standard_ref: str | None = None
     impact_level: str = "中"
+    trigger_condition: str | None = None
+    remediation: str | None = None
+    notes: str | None = None
+    source: str = "运营录入"
+    ref_type: str = "常见"
 
 
-class WriteStubIn(BaseModel):
-    note: str = Field(default="phase-b-readonly")
+# =============================================
+# Phase C 鉴权 Schema
+# =============================================
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    username: str
+    display_name: str | None = None
+    role: str
+    is_active: bool
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class UserCreate(BaseModel):
+    """管理员新建用户 - Phase C"""
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=8)
+    display_name: str | None = None
+    role: str = "operator"
+
+
+class UserUpdate(BaseModel):
+    """管理员编辑用户 - Phase C（全可选）"""
+    display_name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+    password: str | None = None

@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { Alert, Input, Select, Space, Table, Tag, Typography } from "antd";
+import { Alert, Button, Input, Select, Space, Table, Tag, Typography } from "antd";
+import { Link } from "react-router-dom";
 import { api, type Pitfall } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 export default function PitfallListPage() {
+  const { canWrite } = useAuth();
   const [rows, setRows] = useState<Pitfall[]>([]);
   const [impact, setImpact] = useState<string | undefined>();
   const [q, setQ] = useState("");
@@ -24,6 +27,11 @@ export default function PitfallListPage() {
     <div>
       <Typography.Title level={3}>避坑指南</Typography.Title>
       <Space wrap style={{ marginBottom: 16 }}>
+        {canWrite && (
+          <Link to="/ops/pitfalls/new">
+            <Button type="primary">录入避坑</Button>
+          </Link>
+        )}
         <Select
           allowClear
           placeholder="影响等级"
@@ -45,6 +53,12 @@ export default function PitfallListPage() {
         scroll={{ x: true }}
         pagination={false}
         columns={[
+          {
+            title: "ID",
+            dataIndex: "pitfall_id",
+            width: 60,
+            render: (id: number) => <Link to={`/ops/pitfalls/${id}`}>{id}</Link>,
+          },
           {
             title: "影响",
             dataIndex: "impact_level",
