@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Descriptions, Space, Steps, Table, Tag, Typography } from "antd";
+import {
+  Alert,
+  Button,
+  Descriptions,
+  Space,
+  Steps,
+  Table,
+  Tag,
+  Timeline,
+  Typography,
+} from "antd";
 import { Link, useParams } from "react-router-dom";
 import {
   api,
+  listProjectJournal,
   type CriticalPath,
+  type JournalEntry,
   type Progress,
   type Project,
 } from "../api/client";
@@ -30,19 +42,23 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [cp, setCp] = useState<CriticalPath | null>(null);
+  const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
+    const pid = Number(id);
     Promise.all([
       api.get<Project>(`/api/ops/projects/${id}`),
       api.get<Progress[]>(`/api/ops/projects/${id}/progress`),
       api.get<CriticalPath>(`/api/ops/projects/${id}/critical-path`),
+      listProjectJournal(pid, { limit: 40 }),
     ])
-      .then(([p, pr, c]) => {
+      .then(([p, pr, c, j]) => {
         setProject(p.data);
         setProgress(pr.data);
         setCp(c.data);
+        setJournals(j);
       })
       .catch((e) => setError(e.message));
   }, [id]);
@@ -116,8 +132,24 @@ export default function ProjectDetailPage() {
             width: 100,
             render: (s: string) => <Tag color={statusColor[s] || "default"}>{s}</Tag>,
           },
+          {
+            title: "计划起止",
+            width: 160,
+            render: (_: unknown, row: Progress) => {
+              const a = row.planned_start?.slice(0, 10) ?? "";
+              const b = row.planned_end?.slice(0, 10) ?? "";
+              return a || b ? `${a || "—"} ~ ${b || "—"}` : "—";
+            },
+          },
+          {
+            title: "实际完成",
+            dataIndex: "completed_at",
+            width: 110,
+            render: (v: string | null | undefined) => v?.slice(0, 10) || "—",
+          },
+          { title: "第三方", dataIndex: "vendor", width: 140, ellipsis: true },
           { title: "负责人", dataIndex: "assigned_to", width: 100 },
-          { title: "卡点说明", dataIndex: "blocker_note" },
+          { title: "卡点说明", dataIndex: "blocker_note", ellipsis: true },
           ...(canWrite
             ? [
                 {
@@ -135,6 +167,36 @@ export default function ProjectDetailPage() {
             : []),
         ]}
       />
+
+      <Typography.Title level={4} style={{ marginTop: 24 }}>
+        周进展（最近 {journals.length} 条）
+      </Typography.Title>
+      {journals.length === 0 ? (
+        <Typography.Text type="secondary">暂无周记（导入或任务页可追加）</Typography.Text>
+      ) : (
+        <Timeline
+          items={journals.map((j) => ({
+            children: (
+              <div>
+                <Typography.Text strong>
+                  {j.week_start}
+                  {j.week_label ? ` · ${j.week_label}` : ""}
+                </Typography.Text>
+                <div>
+                  <Typography.Text type="secondary">
+                    {j.task_code ? `${j.task_code} ${j.task_name ?? ""}` : "项目级"}
+                    {j.source === "excel_import" ? " · Excel导入" : ""}
+                    {j.actor ? ` · ${j.actor}` : ""}
+                  </Typography.Text>
+                </div>
+                <Typography.Paragraph style={{ marginBottom: 0, whiteSpace: "pre-wrap" }}>
+                  {j.note}
+                </Typography.Paragraph>
+              </div>
+            ),
+          }))}
+        />
+      )}
     </div>
   );
 }

@@ -54,14 +54,15 @@ npm run dev
 | `/ops` | Dashboard |
 | `/ops/projects` | 企业列表（可筛卡点） |
 | `/ops/projects/new` | 新增企业 |
-| `/ops/projects/:id` | 企业详情 + 关键路径 Steps |
+| `/ops/projects/:id` | 企业详情 + 关键路径 + 周进展时间线 |
 | `/ops/projects/:id/edit` | 编辑企业 |
-| `/ops/projects/:id/tasks/:taskId` | 更新任务进度 |
+| `/ops/projects/:id/tasks/:taskId` | 更新任务进度 + 追加周记 |
 | `/ops/stages` | 8 阶段地图 |
 | `/ops/stages/:id` | 阶段详情 |
 | `/ops/pitfalls` | 避坑指南 |
 | `/ops/pitfalls/new` | 录入避坑 |
 | `/ops/pitfalls/:id` | 避坑详情 |
+| `/ops/tasks` | 任务清单维护（仅管理员；停用软删、插入自动顺移编号） |
 | `/ops/users` | 用户管理（仅管理员） |
 | `/tenant/*` | 企业端占位（v1.4） |
 

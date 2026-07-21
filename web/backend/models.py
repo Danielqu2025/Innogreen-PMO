@@ -37,6 +37,7 @@ class TaskDetail(Base):
     description: Mapped[str | None] = mapped_column(Text)
     acceptance_criteria: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     stage: Mapped[StageMap] = relationship(back_populates="tasks")
 
@@ -108,6 +109,9 @@ class ProjectProgress(Base):
     assigned_to: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[str | None] = mapped_column(Text)
+    planned_start: Mapped[str | None] = mapped_column(Text)
+    planned_end: Mapped[str | None] = mapped_column(Text)
+    vendor: Mapped[str | None] = mapped_column(Text)
     blocker_note: Mapped[str | None] = mapped_column(Text)
     resolution_note: Mapped[str | None] = mapped_column(Text)
     actual_days: Mapped[int | None] = mapped_column(Integer)
@@ -115,6 +119,21 @@ class ProjectProgress(Base):
 
     project: Mapped[ProjectProfile] = relationship(back_populates="progress_rows")
     task: Mapped[TaskDetail] = relationship()
+
+
+class ProgressJournal(Base):
+    """任务/项目周进展日志 - L3"""
+    __tablename__ = "progress_journal"
+
+    journal_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project_profile.project_id"), nullable=False)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("task_detail.task_id"))
+    week_start: Mapped[str] = mapped_column(Text, nullable=False)
+    week_label: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="web")
+    actor: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(Text)
 
 
 # =============================================

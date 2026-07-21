@@ -14,7 +14,7 @@ INSERT INTO project_profile (
   2, '卡点', 12, '前期审批中，安全预评价报告待专家评审'
 );
 
--- 阶段0–1 已完成 + 阶段2 部分完成；卡在 2.2.1
+-- 阶段0–1 已完成 + 阶段2 部分完成；卡在 2.2.2（安全预评价报告编制定稿）
 INSERT INTO project_progress (project_id, task_id, status, assigned_to, completed_at) VALUES
 (1, 1, '已完成', '张三', '2026-06-01'),
 (1, 2, '已完成', '张三', '2026-06-10'),

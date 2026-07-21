@@ -32,8 +32,8 @@ for t in [
 
 if counts["stage_map"] != 8:
     fail(f"stages want 8 got {counts['stage_map']}")
-if counts["task_detail"] != 107:
-    fail(f"tasks want 107 got {counts['task_detail']}")
+if counts["task_detail"] != 108:
+    fail(f"tasks want 108 got {counts['task_detail']}")
 if counts["project_profile"] < 2:
     fail("projects < 2")
 if counts["pitfall_guide"] < 4:

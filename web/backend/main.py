@@ -14,6 +14,43 @@ from routers.ops import tenant_router
 settings = get_settings()
 
 
+def ensure_task_is_active_column() -> None:
+    """旧库升级：为 task_detail 补 is_active 列。"""
+    from sqlalchemy import text
+
+    from database import engine
+
+    with engine.begin() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(task_detail)"))]
+        if "is_active" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE task_detail ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+            print("[migrate] task_detail.is_active 已添加")
+
+
+def ensure_progress_schedule_columns() -> None:
+    """旧库升级：project_progress 计划日期与第三方。"""
+    from sqlalchemy import text
+
+    from database import engine
+
+    with engine.begin() as conn:
+        cols = {
+            r[1] for r in conn.execute(text("PRAGMA table_info(project_progress)"))
+        }
+        for col, ddl in (
+            ("planned_start", "ALTER TABLE project_progress ADD COLUMN planned_start TEXT"),
+            ("planned_end", "ALTER TABLE project_progress ADD COLUMN planned_end TEXT"),
+            ("vendor", "ALTER TABLE project_progress ADD COLUMN vendor TEXT"),
+        ):
+            if col not in cols:
+                conn.execute(text(ddl))
+                print(f"[migrate] project_progress.{col} 已添加")
+
+
 def ensure_bootstrap_admin() -> None:
     """冷启动建一号管理员：users 表为空且配置了 PMO_BOOTSTRAP_ADMIN_* 时插入一个 admin。"""
     from database import SessionLocal
@@ -47,6 +84,8 @@ def ensure_bootstrap_admin() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    ensure_task_is_active_column()
+    ensure_progress_schedule_columns()
     ensure_bootstrap_admin()
     yield
 

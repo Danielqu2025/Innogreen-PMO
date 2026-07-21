@@ -11,6 +11,9 @@
 *.db-journal
 *.db-wal
 *.db-shm
+data/backups/
+data/innogreen_pmo.db*
+data/test_api.db*
 
 # Python
 __pycache__/

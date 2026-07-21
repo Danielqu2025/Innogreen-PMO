@@ -16,24 +16,60 @@ def _progress_snapshot(row: ProjectProgress) -> dict:
         "status": row.status,
         "assigned_to": row.assigned_to,
         "blocker_note": row.blocker_note,
+        "started_at": row.started_at,
         "completed_at": row.completed_at,
+        "planned_start": row.planned_start,
+        "planned_end": row.planned_end,
+        "vendor": row.vendor,
     }
 
 
+def to_progress_out(row: ProjectProgress, task: TaskDetail) -> ProgressOut:
+    return ProgressOut(
+        progress_id=row.progress_id,
+        project_id=row.project_id,
+        task_id=row.task_id,
+        task_code=task.task_code,
+        task_name=task.task_name,
+        stage_id=task.stage_id,
+        status=row.status,
+        assigned_to=row.assigned_to,
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        planned_start=row.planned_start,
+        planned_end=row.planned_end,
+        vendor=row.vendor,
+        blocker_note=row.blocker_note,
+        critical_path=task.critical_path,
+    )
+
+
 def recalculate_progress_percent(db: Session, project: ProjectProfile) -> None:
-    """已完成任务数 / 全部任务数 → progress_percent (0-100)。"""
-    total_tasks = db.scalar(select(func.count()).select_from(TaskDetail)) or 0
+    """已完成任务数 / 启用任务数 → progress_percent (0-100)。"""
+    total_tasks = (
+        db.scalar(
+            select(func.count())
+            .select_from(TaskDetail)
+            .where(TaskDetail.is_active == 1)
+        )
+        or 0
+    )
     if total_tasks == 0:
         project.progress_percent = 0
         return
-    completed = db.scalar(
-        select(func.count())
-        .select_from(ProjectProgress)
-        .where(
-            ProjectProgress.project_id == project.project_id,
-            ProjectProgress.status == "已完成",
+    completed = (
+        db.scalar(
+            select(func.count())
+            .select_from(ProjectProgress)
+            .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
+            .where(
+                ProjectProgress.project_id == project.project_id,
+                ProjectProgress.status == "已完成",
+                TaskDetail.is_active == 1,
+            )
         )
-    ) or 0
+        or 0
+    )
     project.progress_percent = min(100, max(0, round(100 * completed / total_tasks)))
 
 
@@ -45,6 +81,7 @@ def sync_project_status(db: Session, project: ProjectProfile) -> None:
         .where(
             ProjectProgress.project_id == project.project_id,
             ProjectProgress.status == "卡点",
+            TaskDetail.is_active == 1,
         )
         .order_by(TaskDetail.sort_order)
     ).all()
@@ -77,6 +114,8 @@ def upsert_progress(
     task = db.get(TaskDetail, task_id)
     if not task:
         raise LookupError("任务不存在")
+    if not task.is_active:
+        raise ValueError("任务已停用，无法更新进度")
 
     row = db.execute(
         select(ProjectProgress).where(
@@ -91,15 +130,27 @@ def upsert_progress(
         row = ProjectProgress(project_id=project_id, task_id=task_id)
         db.add(row)
 
+    data = body.model_dump(exclude_unset=True)
     row.status = body.status
-    row.assigned_to = body.assigned_to
+    if "assigned_to" in data:
+        row.assigned_to = data["assigned_to"]
+    if "planned_start" in data:
+        row.planned_start = data["planned_start"]
+    if "planned_end" in data:
+        row.planned_end = data["planned_end"]
+    if "started_at" in data:
+        row.started_at = data["started_at"]
+    if "vendor" in data:
+        row.vendor = data["vendor"]
 
     if body.status == "卡点":
         row.blocker_note = body.blocker_note
     else:
         row.blocker_note = None
 
-    if body.status == "已完成":
+    if "completed_at" in data:
+        row.completed_at = data["completed_at"]
+    elif body.status == "已完成":
         if not row.completed_at:
             row.completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     else:
@@ -118,16 +169,4 @@ def upsert_progress(
     db.commit()
     db.refresh(row)
 
-    return ProgressOut(
-        progress_id=row.progress_id,
-        project_id=row.project_id,
-        task_id=row.task_id,
-        task_code=task.task_code,
-        task_name=task.task_name,
-        stage_id=task.stage_id,
-        status=row.status,
-        assigned_to=row.assigned_to,
-        completed_at=row.completed_at,
-        blocker_note=row.blocker_note,
-        critical_path=task.critical_path,
-    )
+    return to_progress_out(row, task)

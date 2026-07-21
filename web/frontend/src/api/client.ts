@@ -114,10 +114,66 @@ export type Task = {
   stage_id: number;
   task_name: string;
   task_code: string | null;
+  seq?: number;
+  default_days?: number;
   critical_path: string;
   owner: string;
+  description?: string | null;
   sort_order: number;
+  is_active?: number;
 };
+
+export type TaskCreate = {
+  stage_id: number;
+  task_name: string;
+  parent_task_id?: number | null;
+  insert_before_task_id?: number | null;
+  default_days?: number;
+  critical_path?: string;
+  owner: string;
+  description?: string | null;
+};
+
+export type TaskUpdate = {
+  task_name?: string;
+  default_days?: number;
+  critical_path?: string;
+  owner?: string;
+  description?: string | null;
+};
+
+export async function listStages(): Promise<Stage[]> {
+  const r = await api.get<Stage[]>("/api/ops/stages");
+  return r.data;
+}
+
+export async function listTasks(params?: {
+  stage_id?: number;
+  include_inactive?: boolean;
+}): Promise<Task[]> {
+  const r = await api.get<Task[]>("/api/ops/tasks", { params });
+  return r.data;
+}
+
+export async function createTask(body: TaskCreate): Promise<Task> {
+  const r = await api.post<Task>("/api/ops/tasks", body);
+  return r.data;
+}
+
+export async function updateTask(id: number, body: TaskUpdate): Promise<Task> {
+  const r = await api.patch<Task>(`/api/ops/tasks/${id}`, body);
+  return r.data;
+}
+
+export async function deactivateTask(id: number): Promise<Task> {
+  const r = await api.post<Task>(`/api/ops/tasks/${id}/deactivate`);
+  return r.data;
+}
+
+export async function activateTask(id: number): Promise<Task> {
+  const r = await api.post<Task>(`/api/ops/tasks/${id}/activate`);
+  return r.data;
+}
 
 export type Progress = {
   progress_id: number;
@@ -127,9 +183,62 @@ export type Progress = {
   stage_id: number | null;
   status: string;
   assigned_to: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  planned_start?: string | null;
+  planned_end?: string | null;
+  vendor?: string | null;
   blocker_note: string | null;
   critical_path: string | null;
 };
+
+export type JournalEntry = {
+  journal_id: number;
+  project_id: number;
+  task_id: number | null;
+  task_code: string | null;
+  task_name: string | null;
+  week_start: string;
+  week_label: string | null;
+  note: string;
+  source: string;
+  actor: string | null;
+  created_at: string | null;
+};
+
+export async function listProjectJournal(
+  projectId: number,
+  params?: { task_id?: number; limit?: number },
+): Promise<JournalEntry[]> {
+  const r = await api.get<JournalEntry[]>(`/api/ops/projects/${projectId}/journal`, {
+    params,
+  });
+  return r.data;
+}
+
+export async function listTaskJournal(
+  projectId: number,
+  taskId: number,
+  limit = 100,
+): Promise<JournalEntry[]> {
+  const r = await api.get<JournalEntry[]>(
+    `/api/ops/projects/${projectId}/tasks/${taskId}/journal`,
+    { params: { limit } },
+  );
+  return r.data;
+}
+
+export async function createTaskJournal(
+  projectId: number,
+  taskId: number,
+  body: { week_start: string; note: string; week_label?: string },
+): Promise<JournalEntry> {
+  const r = await api.post<JournalEntry>(
+    `/api/ops/projects/${projectId}/tasks/${taskId}/journal`,
+    body,
+  );
+  return r.data;
+}
 
 export type Blocker = {
   project_id: number;

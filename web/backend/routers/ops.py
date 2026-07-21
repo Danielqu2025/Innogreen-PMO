@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
-from deps import WriteUser, get_current_user
+from deps import AdminUser, WriteUser, get_current_user
 from models import (
     PitfallGuide,
     ProjectProgress,
@@ -17,6 +17,8 @@ from schemas import (
     BlockerOut,
     CriticalPathOut,
     DashboardSummary,
+    JournalCreate,
+    JournalOut,
     PitfallOut,
     PitfallCreate,
     ProgressOut,
@@ -25,13 +27,17 @@ from schemas import (
     ProjectOut,
     ProjectUpdate,
     StageOut,
+    TaskCreate,
     TaskDependencyOut,
     TaskOut,
+    TaskUpdate,
 )
 from services.critical_path import build_critical_path, get_project_or_none
+from services import journal_service
 from services.pitfall_service import create_pitfall
-from services.progress_service import upsert_progress
+from services.progress_service import to_progress_out, upsert_progress
 from services.project_service import ConflictError, create_project, update_project
+from services import task_service
 
 router = APIRouter(prefix="/api/ops", dependencies=[Depends(get_current_user)])
 
@@ -65,7 +71,9 @@ def list_stages(db: Session = Depends(get_db)) -> list[StageOut]:
     stages = db.execute(select(StageMap).order_by(StageMap.sort_order)).scalars().all()
     counts = dict(
         db.execute(
-            select(TaskDetail.stage_id, func.count()).group_by(TaskDetail.stage_id)
+            select(TaskDetail.stage_id, func.count())
+            .where(TaskDetail.is_active == 1)
+            .group_by(TaskDetail.stage_id)
         ).all()
     )
     return [
@@ -92,7 +100,9 @@ def get_stage(stage_id: int, db: Session = Depends(get_db)) -> StageOut:
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "阶段不存在"},
         )
     count = db.execute(
-        select(func.count()).select_from(TaskDetail).where(TaskDetail.stage_id == stage_id)
+        select(func.count())
+        .select_from(TaskDetail)
+        .where(TaskDetail.stage_id == stage_id, TaskDetail.is_active == 1)
     ).scalar_one()
     return StageOut(
         stage_id=s.stage_id,
@@ -107,32 +117,34 @@ def get_stage(stage_id: int, db: Session = Depends(get_db)) -> StageOut:
 
 
 @router.get("/stages/{stage_id}/tasks", response_model=list[TaskOut])
-def list_stage_tasks(stage_id: int, db: Session = Depends(get_db)) -> list[TaskOut]:
+def list_stage_tasks(
+    stage_id: int,
+    include_inactive: bool = Query(False),
+    db: Session = Depends(get_db),
+) -> list[TaskOut]:
     if not db.get(StageMap, stage_id):
         raise HTTPException(
             404,
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "阶段不存在"},
         )
-    tasks = (
-        db.execute(
-            select(TaskDetail)
-            .where(TaskDetail.stage_id == stage_id)
-            .order_by(TaskDetail.sort_order)
-        )
-        .scalars()
-        .all()
-    )
+    q = select(TaskDetail).where(TaskDetail.stage_id == stage_id)
+    if not include_inactive:
+        q = q.where(TaskDetail.is_active == 1)
+    tasks = db.execute(q.order_by(TaskDetail.sort_order)).scalars().all()
     return [TaskOut.model_validate(t) for t in tasks]
 
 
 @router.get("/tasks", response_model=list[TaskOut])
 def list_tasks(
     stage_id: int | None = None,
+    include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> list[TaskOut]:
     q = select(TaskDetail).order_by(TaskDetail.sort_order)
     if stage_id is not None:
         q = q.where(TaskDetail.stage_id == stage_id)
+    if not include_inactive:
+        q = q.where(TaskDetail.is_active == 1)
     return [TaskOut.model_validate(t) for t in db.execute(q).scalars().all()]
 
 
@@ -145,6 +157,113 @@ def get_task(task_id: int, db: Session = Depends(get_db)) -> TaskOut:
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "任务不存在"},
         )
     return TaskOut.model_validate(t)
+
+
+@router.post("/tasks", response_model=TaskOut, status_code=201)
+def create_task_endpoint(
+    body: TaskCreate,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> TaskOut:
+    try:
+        return task_service.create_task(
+            db,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except task_service.ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_VALIDATION", "message": str(e)},
+        ) from e
+
+
+@router.patch("/tasks/{task_id}", response_model=TaskOut)
+def update_task_endpoint(
+    task_id: int,
+    body: TaskUpdate,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> TaskOut:
+    try:
+        return task_service.update_task(
+            db,
+            task_id,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    except task_service.ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_VALIDATION", "message": str(e)},
+        ) from e
+
+
+@router.post("/tasks/{task_id}/deactivate", response_model=TaskOut)
+def deactivate_task(
+    task_id: int,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> TaskOut:
+    try:
+        return task_service.set_task_active(
+            db,
+            task_id,
+            False,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+
+
+@router.post("/tasks/{task_id}/activate", response_model=TaskOut)
+def activate_task(
+    task_id: int,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> TaskOut:
+    try:
+        return task_service.set_task_active(
+            db,
+            task_id,
+            True,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
 
 
 @router.get("/tasks/{task_id}/dependencies", response_model=list[TaskDependencyOut])
@@ -289,25 +408,92 @@ def project_progress(project_id: int, db: Session = Depends(get_db)) -> list[Pro
     rows = db.execute(
         select(ProjectProgress, TaskDetail)
         .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
-        .where(ProjectProgress.project_id == project_id)
+        .where(
+            ProjectProgress.project_id == project_id,
+            TaskDetail.is_active == 1,
+        )
         .order_by(TaskDetail.sort_order)
     ).all()
-    return [
-        ProgressOut(
-            progress_id=pg.progress_id,
-            project_id=pg.project_id,
-            task_id=pg.task_id,
-            task_code=td.task_code,
-            task_name=td.task_name,
-            stage_id=td.stage_id,
-            status=pg.status,
-            assigned_to=pg.assigned_to,
-            completed_at=pg.completed_at,
-            blocker_note=pg.blocker_note,
-            critical_path=td.critical_path,
+    return [to_progress_out(pg, td) for pg, td in rows]
+
+
+@router.get("/projects/{project_id}/journal", response_model=list[JournalOut])
+def list_project_journal(
+    project_id: int,
+    task_id: int | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[JournalOut]:
+    try:
+        return journal_service.list_journals(
+            db, project_id, task_id=task_id, limit=limit
         )
-        for pg, td in rows
-    ]
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+
+
+@router.get(
+    "/projects/{project_id}/tasks/{task_id}/journal",
+    response_model=list[JournalOut],
+)
+def list_task_journal(
+    project_id: int,
+    task_id: int,
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[JournalOut]:
+    try:
+        return journal_service.list_journals(
+            db, project_id, task_id=task_id, limit=limit
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+
+
+@router.post(
+    "/projects/{project_id}/tasks/{task_id}/journal",
+    response_model=JournalOut,
+    status_code=201,
+)
+def create_task_journal(
+    project_id: int,
+    task_id: int,
+    body: JournalCreate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> JournalOut:
+    try:
+        return journal_service.create_journal(
+            db,
+            project_id,
+            task_id,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    except journal_service.ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_VALIDATION", "message": str(e)},
+        ) from e
 
 
 @router.get("/projects/{project_id}/critical-path", response_model=CriticalPathOut)

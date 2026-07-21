@@ -20,6 +20,7 @@ const PitfallListPage = lazy(() => import("./pages/PitfallListPage"));
 const PitfallFormPage = lazy(() => import("./pages/PitfallFormPage"));
 const PitfallDetailPage = lazy(() => import("./pages/PitfallDetailPage"));
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const TaskCatalogPage = lazy(() => import("./pages/TaskCatalogPage"));
 const TenantPlaceholderPage = lazy(() => import("./pages/TenantPlaceholderPage"));
 
 const Fallback = <div>加载中...</div>;
@@ -85,6 +86,10 @@ export default function App() {
                 <Route
                   path="users"
                   element={withSuspense(<UserManagementPage />)}
+                />
+                <Route
+                  path="tasks"
+                  element={withSuspense(<TaskCatalogPage />)}
                 />
               </Route>
             </Route>

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS task_detail (
   description       TEXT,                     -- 任务描述
   acceptance_criteria TEXT,                   -- 验收标准
   sort_order        INTEGER NOT NULL,
+  is_active         INTEGER NOT NULL DEFAULT 1, -- 1=启用 0=停用（软删除）
   created_at        TEXT DEFAULT (datetime('now')),
   updated_at        TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (stage_id) REFERENCES stage_map(stage_id) ON DELETE CASCADE,
@@ -161,8 +162,11 @@ CREATE TABLE IF NOT EXISTS project_progress (
   status        TEXT NOT NULL DEFAULT '待开始',  -- 待开始/进行中/已完成/已跳过/卡点
   priority      TEXT DEFAULT '🟢',           -- 🔴高/🟡中/🟢低
   assigned_to   TEXT,
-  started_at    TEXT,
-  completed_at  TEXT,
+  started_at    TEXT,                        -- 实际开始
+  completed_at  TEXT,                        -- 实际完成
+  planned_start TEXT,                        -- 计划开始（Excel/导入）
+  planned_end   TEXT,                        -- 计划完成
+  vendor        TEXT,                        -- 第三方单位
   blocker_note  TEXT,                        -- 卡点说明
   resolution_note TEXT,                      -- 解决方案
   actual_days   INTEGER,                     -- 实际耗时

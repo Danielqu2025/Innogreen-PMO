@@ -5,6 +5,7 @@ import {
   NodeIndexOutlined,
   WarningOutlined,
   UserOutlined,
+  UnorderedListOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -31,9 +32,11 @@ export default function AppLayout() {
       ? "/ops/stages"
       : loc.pathname.startsWith("/ops/pitfalls")
         ? "/ops/pitfalls"
-        : loc.pathname.startsWith("/ops/users")
-          ? "/ops/users"
-          : "/ops";
+        : loc.pathname.startsWith("/ops/tasks")
+          ? "/ops/tasks"
+          : loc.pathname.startsWith("/ops/users")
+            ? "/ops/users"
+            : "/ops";
 
   const items = [
     { key: "/ops", icon: <DashboardOutlined />, label: <Link to="/ops">Dashboard</Link> },
@@ -41,7 +44,14 @@ export default function AppLayout() {
     { key: "/ops/stages", icon: <NodeIndexOutlined />, label: <Link to="/ops/stages">阶段地图</Link> },
     { key: "/ops/pitfalls", icon: <WarningOutlined />, label: <Link to="/ops/pitfalls">避坑指南</Link> },
     ...(user?.role === "admin"
-      ? [{ key: "/ops/users", icon: <UserOutlined />, label: <Link to="/ops/users">用户管理</Link> }]
+      ? [
+          {
+            key: "/ops/tasks",
+            icon: <UnorderedListOutlined />,
+            label: <Link to="/ops/tasks">任务清单</Link>,
+          },
+          { key: "/ops/users", icon: <UserOutlined />, label: <Link to="/ops/users">用户管理</Link> },
+        ]
       : []),
   ];
 

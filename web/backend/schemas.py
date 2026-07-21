@@ -27,6 +27,28 @@ class TaskOut(BaseModel):
     owner: str
     description: str | None = None
     sort_order: int
+    is_active: int = 1
+
+
+class TaskCreate(BaseModel):
+    """新增任务（管理员）；task_code 由系统按同级顺移生成。"""
+    stage_id: int
+    task_name: str = Field(min_length=1)
+    parent_task_id: int | None = None
+    insert_before_task_id: int | None = None
+    default_days: int = 0
+    critical_path: str = "🟢"
+    owner: str = Field(min_length=1)
+    description: str | None = None
+
+
+class TaskUpdate(BaseModel):
+    """编辑任务字段（不可改 task_code）。"""
+    task_name: str | None = Field(default=None, min_length=1)
+    default_days: int | None = None
+    critical_path: str | None = None
+    owner: str | None = Field(default=None, min_length=1)
+    description: str | None = None
 
 
 class TaskDependencyOut(BaseModel):
@@ -66,7 +88,11 @@ class ProgressOut(BaseModel):
     stage_id: int | None = None
     status: str
     assigned_to: str | None = None
+    started_at: str | None = None
     completed_at: str | None = None
+    planned_start: str | None = None
+    planned_end: str | None = None
+    vendor: str | None = None
     blocker_note: str | None = None
     critical_path: str | None = None
 
@@ -165,6 +191,34 @@ class ProgressUpdate(BaseModel):
     status: str  # 待开始 / 进行中 / 已完成 / 已跳过 / 卡点
     assigned_to: str | None = None
     blocker_note: str | None = None
+    planned_start: str | None = None
+    planned_end: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    vendor: str | None = None
+
+
+class JournalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    journal_id: int
+    project_id: int
+    task_id: int | None = None
+    task_code: str | None = None
+    task_name: str | None = None
+    week_start: str
+    week_label: str | None = None
+    note: str
+    source: str
+    actor: str | None = None
+    created_at: str | None = None
+
+
+class JournalCreate(BaseModel):
+    """追加周进展（L3）"""
+    week_start: str = Field(min_length=10, max_length=32)
+    note: str = Field(min_length=1)
+    week_label: str | None = None
 
 
 class PitfallCreate(BaseModel):

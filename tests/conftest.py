@@ -155,7 +155,7 @@ def ent01(operator_client):
         )
 
     conn = sqlite3.connect(TEST_DB)
-    for task_id in range(1, 108):
+    for task_id in range(1, 500):
         if task_id not in original_task_ids:
             conn.execute(
                 "DELETE FROM project_progress WHERE project_id=? AND task_id=?",

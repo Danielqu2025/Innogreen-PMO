@@ -26,7 +26,7 @@ Innogreen PMO (项目管理办公室) is a digital foundation for the **Shanghai
 
 ### Three-Layer Structure
 
-1. **Content Layer**: 8 stages × 107 task nodes with standardized process mapping
+1. **Content Layer**: 8 stages × 108 task nodes with standardized process mapping
 2. **Database Layer**: SQLite with 8 tables (WAL mode, single writer) + `audit_log`
 3. **Web App (Phase C)**: FastAPI backend (`/api/ops`) + React/Ant Design frontend; Python CLI scripts for batch import/export
 
@@ -36,7 +36,7 @@ Database path: `data/innogreen_pmo.db`
 
 **8 Tables** (7 core + 1 audit, defined in [sql/schema.sql](sql/schema.sql) + [sql/audit_log.sql](sql/audit_log.sql)):
 - `stage_map` — 8 stages with standardized naming, ownership, critical path flags
-- `task_detail` — 107 tasks with `task_code` (e.g., "2.1.3"), dependencies, owners
+- `task_detail` — 108+ tasks with `task_code` (e.g., "2.1.3"), dependencies, owners; `is_active` for soft-delete
 - `task_dependency` — Many-to-many task dependency relationships
 - `pitfall_guide` — Compliance pitfalls (wrong/right action pairs)
 - `stage_pitfall_ref` — Many-to-many stage-pitfall relationships
@@ -140,7 +140,7 @@ innogreen-pmo/
 │   ├── users.sql               # users table (Phase C auth)
 │   ├── indexes.sql              # Index definitions
 │   ├── triggers.sql             # Auto-update updated_at triggers
-│   ├── seed.sql                 # 8 stages + 107 tasks + dependencies
+│   ├── seed.sql                 # 8 stages + 108 tasks + dependencies
 │   └── sample_data.sql          # 3 sample projects + pitfalls
 │
 ├── scripts/
@@ -191,9 +191,11 @@ innogreen-pmo/
 **Write endpoints** (Phase C, all audited via `services/audit.py`):
 - `POST /api/ops/projects`, `PATCH /api/ops/projects/{id}` — create/edit company profile
 - `PUT /api/ops/projects/{id}/tasks/{task_id}` — upsert task progress (recomputes `progress_percent` + syncs `project_status`)
+- `GET/POST /api/ops/projects/{id}/journal` · `.../tasks/{task_id}/journal` — L3 weekly journal timeline
 - `POST /api/ops/pitfalls` — author a pitfall + link to a stage
+- `POST/PATCH /api/ops/tasks`, `POST .../activate|deactivate` — **admin** task catalog (soft-delete via `is_active`; insert auto-renumbers sibling `task_code`)
 
-There are **no DELETE endpoints** by design (traceability). `/api/tenant/*` returns 501 until v1.4.
+There are **no hard DELETE endpoints** by design (traceability; tasks use deactivate). `/api/tenant/*` returns 501 until v1.4.
 
 ## Language Convention
 
@@ -206,5 +208,5 @@ There are **no DELETE endpoints** by design (traceability). `/api/tenant/*` retu
 ## Reference Documents
 
 - [development_plan_v1.0.md](development_plan_v1.0.md) — Complete project specification
-- 工作阶段划分.xlsx — Source 8-stage process map with 107 task nodes
+- 工作阶段划分.xlsx — Source 8-stage process map with 108 task nodes
 - [development_plan_v1.3_web_app.md](development_plan_v1.3_web_app.md) — Web app roadmap

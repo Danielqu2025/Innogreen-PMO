@@ -118,6 +118,24 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         exec_sql_file(cursor, SQL_DIR / "users.sql", required=False)
         log("Users table created")
 
+        log("Creating progress_journal table...")
+        exec_sql_file(cursor, SQL_DIR / "progress_journal.sql", required=False)
+        log("Progress journal table created")
+
+        # 旧库升级：task_detail.is_active（schema.sql 已含该列时跳过）
+        cols = [r[1] for r in cursor.execute("PRAGMA table_info(task_detail)")]
+        if "is_active" not in cols:
+            log("Adding task_detail.is_active...")
+            cursor.execute(
+                "ALTER TABLE task_detail ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+            )
+
+        pcols = [r[1] for r in cursor.execute("PRAGMA table_info(project_progress)")]
+        for col in ("planned_start", "planned_end", "vendor"):
+            if col not in pcols:
+                log(f"Adding project_progress.{col}...")
+                cursor.execute(f"ALTER TABLE project_progress ADD COLUMN {col} TEXT")
+
         log("Creating indexes...")
         exec_sql_file(cursor, SQL_DIR / "indexes.sql", required=False)
         log("Indexes created")
@@ -142,7 +160,7 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         log("\nPhase A Data Verification:")
         checks = [
             ("stages", "stage_map", 8),
-            ("tasks", "task_detail", 107),
+            ("tasks", "task_detail", 108),
             ("dependencies", "task_dependency", None),
             ("pitfalls", "pitfall_guide", 4),
             ("projects", "project_profile", 3),
