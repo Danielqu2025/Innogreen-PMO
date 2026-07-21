@@ -46,3 +46,6 @@ data/private/**
 !data/private/*.example
 *.local.csv
 name_map.local.csv
+
+# Web local env
+web/.env

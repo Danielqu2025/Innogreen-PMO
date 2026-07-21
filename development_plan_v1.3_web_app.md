@@ -458,14 +458,16 @@ innogreen-pmo/
 
 ### 9.2 Phase B — 只读 Web（3–4 天）
 
-| 日 | 内容 |
-|----|------|
-| B1 | 后端脚手架、models、只读 API、鉴权骨架 |
-| B2 | Dashboard + 企业列表/详情（只读） |
-| B3 | 阶段地图 + 避坑列表 |
-| B4 | 关键路径展示 + 响应式 + 冒烟测试 |
+> **更新：2026-07-21 Phase B 骨架已落地 ✅**（FastAPI 只读 API + React/Ant Design 运营端）
 
-**Phase B 验收通过后，再开写入。**
+| 日 | 内容 | 状态 |
+|----|------|------|
+| B1 | 后端脚手架、models、只读 API、鉴权骨架 | ✅ |
+| B2 | Dashboard + 企业列表/详情（只读） | ✅ |
+| B3 | 阶段地图 + 避坑列表 | ✅ |
+| B4 | 关键路径 Steps + 响应式布局 + 冒烟 | ✅ |
+
+**Phase B 可联调后，再开 Phase C 写入。**
 
 ### 9.3 Phase C — 受控写入（2–3 天）
 
@@ -488,7 +490,7 @@ innogreen-pmo/
 | B-T1 | 打开 Dashboard | 看到样例企业数、阶段分布、卡点列表非空 |
 | B-T2 | 筛选「卡点」 | 与 SQL `status='卡点'` 结果一致 |
 | B-T3 | 打开企业详情 | 显示当前阶段、任务状态、关键路径可读 |
-| B-T4 | 阶段地图 | 18 个阶段可点进任务列表 |
+| B-T4 | 阶段地图 | 8 个阶段可点进任务列表 |
 | B-T5 | 手机宽度 | 关键列表不横向溢出到不可用 |
 | B-T6 | 无 Token 写接口 | 返回 401 |
 
@@ -863,8 +865,9 @@ echo "样例企业: $sample_count (预期: ≥2)"
 | **v1.3 补充更新** | **2026-07-21** | 补录：task_code/audit_log schema、前端目录结构、Bearer Token 规范、Windows 兼容性措施、pytest 测试用例 |
 | **Phase A 完成** | **2026-07-21** | 数据底座验收通过：8阶段/107任务/69依赖/3企业样例 |
 | **Phase A 修复** | **2026-07-21** | project_code、样例对齐、依赖父子方向、init_db 幂等、避坑 stage_ref |
+| **Phase B 骨架** | **2026-07-21** | FastAPI 只读 API + React/Ant Design 运营端可联调 |
+| **Phase B 优化** | **2026-07-21** | 前端代码分割(lazy)、WAL模式、审计模型+服务预留、写入Schema预留 |
 
 ---
 
-**方案版本：v1.3 修订稿（决策已全部录入；Phase A 数据已修复复验）**  
-**下一步：开工 Phase B（只读 Web / FastAPI + React）**
+**方案版本：v1.3 Phase B 完成，优化待 Phase C**

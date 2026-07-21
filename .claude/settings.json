@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__excel__excel_describe_sheets",
+      "mcp__excel__excel_read_sheet",
+      "Bash(pandoc --track-changes=all \"e:\\\\claude\\\\Innogreen-PMO\\\\创新中心简介20260227.docx\" -o -)",
+      "Bash(python \"C:\\\\Users\\\\quxia\\\\.claude\\\\skills\\\\docx\\\\scripts\\\\office\\\\unpack.py\" \"e:\\\\claude\\\\Innogreen-PMO\\\\创新中心简介20260227.docx\" \"e:\\\\claude\\\\Innogreen-PMO\\\\temp_docx_unpack\")",
+      "Bash(node -e ' *)",
+      "Bash(npm install *)",
+      "Bash(head -n 1061 development_plan_v1.0.md)",
+      "Bash(tail -n +1109 development_plan_v1.0.md)",
+      "Bash(mv temp.md development_plan_v1.0.md)",
+      "Bash(echo \"Proxxima.md\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit: v1.3 Web app plan with FastAPI + React *)",
+      "mcp__filesystem__list_directory",
+      "Bash(python -c ' *)",
+      "Bash(python scripts/init_db.py)",
+      "Bash(cd e:/claude/Innogreen-PMO && rm -f data/innogreen_pmo.db data/innogreen_pmo.db-* && python scripts/init_db.py)",
+      "Bash(rm -f data/innogreen_pmo.db data/innogreen_pmo.db-*)",
+      "Bash(python -c \"from main import app; print\\('Backend imports OK'\\)\")",
+      "Bash(npm run *)",
+      "Bash(python -c \"from main import app; from database import engine; print\\('Backend OK'\\)\")",
+      "Bash(python -c \"from main import app; from models import AuditLog; print\\('Backend OK - AuditLog model added'\\)\")"
+    ],
+    "additionalDirectories": [
+      "E:\\claude\\Innogreen-PMO\\data"
+    ]
+  }
+}

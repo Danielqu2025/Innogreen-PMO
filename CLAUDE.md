@@ -16,8 +16,8 @@ Innogreen PMO (项目管理办公室) is a digital foundation for the **Shanghai
 
 | Version | Focus | Status |
 |---------|-------|--------|
-| v1.2 | Data model + Python CLI tools | ✅ Current |
-| v1.3 | Internal web app (FastAPI + React) | Planning |
+| v1.2 | Data model + Python CLI tools | Done |
+| v1.3 | Internal web app (FastAPI + React) | Phase B (read-only) in progress |
 
 ## Architecture
 
@@ -68,14 +68,28 @@ python scripts/import_excel.py --db data/innogreen_pmo.db --excel 工作阶段�
 python scripts/verify_phase_a.py
 ```
 
+### Web (Phase B read-only)
+
+```bash
+# Backend
+cd web/backend
+pip install -r ../requirements.txt
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+# Frontend
+cd web/frontend
+npm install
+npm run dev
+```
+
+- UI: http://127.0.0.1:5173 (login token = `PMO_API_TOKEN` in `web/.env`)
+- API docs: http://127.0.0.1:8000/docs
+
 ### Python Dependencies
 
 ```bash
-# Install dependencies
-npm install   # installs adm-zip (for zip operations)
-
-# Python dependencies (openpyxl for Excel import)
 pip install openpyxl
+pip install -r web/requirements.txt
 ```
 
 ## Directory Structure
@@ -106,6 +120,12 @@ innogreen-pmo/
     ├── init_db.py               # Database initialization (idempotent)
     ├── import_excel.py          # Excel → DB import
     └── verify_phase_a.py        # Data verification checks
+
+└── web/                         # Phase B+
+    ├── README.md
+    ├── requirements.txt
+    ├── backend/                 # FastAPI (/api/ops)
+    └── frontend/                # React + Ant Design
 ```
 
 ## Language Convention
