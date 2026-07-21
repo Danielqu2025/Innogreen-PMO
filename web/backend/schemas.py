@@ -108,6 +108,51 @@ class BlockerOut(BaseModel):
     project_status: str
 
 
+class DelayedTaskOut(BaseModel):
+    project_id: int
+    project_code: str
+    project: str
+    task_id: int
+    task_code: str | None = None
+    task: str
+    planned_end: str
+    status: str
+    note: str | None = None
+
+
+class ProjectIssueFlags(BaseModel):
+    blocker: bool = False
+    delayed: bool = False
+    stalled: bool = False
+
+
+class DashboardProjectOut(BaseModel):
+    project_id: int
+    project_code: str
+    company_name: str | None = None
+    current_stage_name: str | None = None
+    progress_percent: int
+    project_status: str
+    flags: ProjectIssueFlags
+    last_journal_week: str | None = None
+
+
+class DashboardCounts(BaseModel):
+    blocker_projects: int = 0
+    delayed_projects: int = 0
+    stalled_projects: int = 0
+
+
+class DashboardSummary(BaseModel):
+    total_projects: int
+    by_status: dict[str, int]
+    by_stage: dict[str, int]
+    blockers: list[BlockerOut]
+    projects: list[DashboardProjectOut] = []
+    delayed_tasks: list[DelayedTaskOut] = []
+    counts: DashboardCounts = DashboardCounts()
+
+
 class PitfallOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,13 +168,6 @@ class PitfallOut(BaseModel):
     notes: str | None = None
     source: str
     verified: int
-
-
-class DashboardSummary(BaseModel):
-    total_projects: int
-    by_status: dict[str, int]
-    by_stage: dict[str, int]
-    blockers: list[BlockerOut]
 
 
 class CriticalPathNode(BaseModel):

@@ -32,6 +32,7 @@ from schemas import (
     TaskOut,
     TaskUpdate,
 )
+from services.dashboard_service import build_dashboard_summary
 from services.critical_path import build_critical_path, get_project_or_none
 from services import journal_service
 from services.pitfall_service import create_pitfall
@@ -639,25 +640,7 @@ def stage_pitfalls(stage_id: int, db: Session = Depends(get_db)) -> list[Pitfall
 
 @router.get("/dashboard/summary", response_model=DashboardSummary)
 def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
-    projects = db.execute(select(ProjectProfile)).scalars().all()
-    stage_names = {
-        s.stage_id: s.stage_name
-        for s in db.execute(select(StageMap)).scalars().all()
-    }
-    by_status: dict[str, int] = {}
-    by_stage: dict[str, int] = {}
-    for p in projects:
-        by_status[p.project_status] = by_status.get(p.project_status, 0) + 1
-        if p.current_stage_id:
-            name = stage_names.get(p.current_stage_id) or str(p.current_stage_id)
-            by_stage[name] = by_stage.get(name, 0) + 1
-    blockers = list_blockers(db)
-    return DashboardSummary(
-        total_projects=len(projects),
-        by_status=by_status,
-        by_stage=by_stage,
-        blockers=blockers,
-    )
+    return build_dashboard_summary(db)
 
 
 tenant_router = APIRouter(prefix="/api/tenant")

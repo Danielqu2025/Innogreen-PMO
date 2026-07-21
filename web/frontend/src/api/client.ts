@@ -251,11 +251,41 @@ export type Blocker = {
   project_status: string;
 };
 
+export type DashboardProject = {
+  project_id: number;
+  project_code: string;
+  company_name: string | null;
+  current_stage_name: string | null;
+  progress_percent: number;
+  project_status: string;
+  flags: { blocker: boolean; delayed: boolean; stalled: boolean };
+  last_journal_week: string | null;
+};
+
+export type DelayedTask = {
+  project_id: number;
+  project_code: string;
+  project: string;
+  task_id: number;
+  task_code: string | null;
+  task: string;
+  planned_end: string;
+  status: string;
+  note: string | null;
+};
+
 export type DashboardSummary = {
   total_projects: number;
   by_status: Record<string, number>;
   by_stage: Record<string, number>;
   blockers: Blocker[];
+  projects: DashboardProject[];
+  delayed_tasks: DelayedTask[];
+  counts: {
+    blocker_projects: number;
+    delayed_projects: number;
+    stalled_projects: number;
+  };
 };
 
 export type Pitfall = {
