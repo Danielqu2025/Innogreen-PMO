@@ -7,9 +7,11 @@ from sqlalchemy import func, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_settings
+from rate_limit import setup_rate_limit
 from routers.auth import router as auth_router
 from routers.ops import router as ops_router
 from routers.ops import tenant_router
+from security_headers import SecurityHeadersMiddleware
 
 settings = get_settings()
 
@@ -98,7 +100,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# SessionMiddleware 先加，CORS 后加 → CORS 为最外层（Starlette 后 add 的在最外）
+# 中间件顺序（Starlette 后 add 的在最外层 → 先处理请求）：
+#   SecurityHeaders → RateLimit → CORS → SessionMiddleware
+# SecurityHeaders 在最外：所有响应都带头，包括 429 / 401。
+# RateLimit 在 CORS 之内：未授权 / 已超限都先走 CORS 头再加 429。
+# Session 在最内：路由级 get_current_user 才能解 session。
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.pmo_session_secret,
@@ -106,6 +112,7 @@ app.add_middleware(
     https_only=settings.pmo_https_only,
     max_age=60 * 60 * 24 * 7,  # 7 天
 )
+# 设置 add_middleware 顺序：先 add 的在外层
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -113,6 +120,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
+setup_rate_limit(app)
 
 app.include_router(auth_router)
 app.include_router(ops_router)

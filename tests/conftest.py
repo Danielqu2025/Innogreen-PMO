@@ -60,6 +60,14 @@ def app():
 @pytest.fixture(scope="function")
 def client(app):
     """Anonymous TestClient — no session (for 401/unauthenticated tests)."""
+    # 重置 slowapi 限速计数器：limiter 是模块级单例，跨测试累积会假性 429。
+    try:
+        limiter = getattr(app.state, "limiter", None)
+        if limiter is not None:
+            limiter.reset()
+    except Exception:
+        # 兼容未注册 limiter 的情形（如旧 build）
+        pass
     with TestClient(app) as c:
         yield c
 
@@ -83,43 +91,41 @@ def _seed_test_users() -> None:
     conn.close()
 
 
-@pytest.fixture(scope="function")
-def admin_client(app):
-    """Admin TestClient — all write ops + user management."""
+def _make_role_client(app, uname: str, pw: str, label: str) -> TestClient:
+    """内部工厂：建带会话的角色客户端。"""
     _seed_test_users()
+    # 重置 slowapi 限速计数器（每个测试独立配额）
+    limiter = getattr(app.state, "limiter", None)
+    if limiter is not None:
+        try:
+            limiter.reset()
+        except Exception:
+            pass
     with TestClient(app) as client:
         r = client.post(
             "/api/auth/login",
-            json={"username": TEST_ADMIN_USER, "password": TEST_ADMIN_PASS},
+            json={"username": uname, "password": pw},
         )
-        assert r.status_code == 200, f"admin login failed: {r.text}"
-        yield client
+        assert r.status_code == 200, f"{label} login failed: {r.text}"
+        return client
+
+
+@pytest.fixture(scope="function")
+def admin_client(app):
+    """Admin TestClient — all write ops + user management."""
+    yield _make_role_client(app, TEST_ADMIN_USER, TEST_ADMIN_PASS, "admin")
 
 
 @pytest.fixture(scope="function")
 def operator_client(app):
     """Operator TestClient — read + write (Phase C ops)."""
-    _seed_test_users()
-    with TestClient(app) as client:
-        r = client.post(
-            "/api/auth/login",
-            json={"username": TEST_OPERATOR_USER, "password": TEST_OPERATOR_PASS},
-        )
-        assert r.status_code == 200, f"operator login failed: {r.text}"
-        yield client
+    yield _make_role_client(app, TEST_OPERATOR_USER, TEST_OPERATOR_PASS, "operator")
 
 
 @pytest.fixture(scope="function")
 def viewer_client(app):
     """Viewer TestClient — read-only, all writes → 403."""
-    _seed_test_users()
-    with TestClient(app) as client:
-        r = client.post(
-            "/api/auth/login",
-            json={"username": TEST_VIEWER_USER, "password": TEST_VIEWER_PASS},
-        )
-        assert r.status_code == 200, f"viewer login failed: {r.text}"
-        yield client
+    yield _make_role_client(app, TEST_VIEWER_USER, TEST_VIEWER_PASS, "viewer")
 
 
 @pytest.fixture(scope="function")
