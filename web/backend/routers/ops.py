@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -13,6 +13,7 @@ from models import (
     TaskDependency,
     TaskDetail,
 )
+from rate_limit import limiter
 from schemas import (
     BlockerOut,
     CriticalPathOut,
@@ -852,8 +853,10 @@ async def import_excel(
 
 
 @router.post("/import/db", response_model=DbImportResultOut)
+@limiter.limit("5/hour")  # 替换库是毁灭性操作，限速兜底（即使管理员 Cookie 泄漏也不能滥用）
 async def import_db(
     request: Request,
+    response: Response,
     user: AdminUser,
     db: Session = Depends(get_db),
     file: UploadFile = File(...),

@@ -10,3 +10,4 @@ bcrypt>=4.2
 itsdangerous>=2.0
 openpyxl>=3.1
 python-multipart>=0.0.9
+slowapi>=0.1.9  # 速率限制（防登录爆破 / 批量建账号 / DB 替换滥用）

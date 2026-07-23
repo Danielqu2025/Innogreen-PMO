@@ -8,7 +8,7 @@
 """
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from deps import ROLES, AdminUser, CurrentUser
 from models import AuditLog, User
+from rate_limit import limiter
 from schemas import AuditLogOut, LoginIn, UserCreate, UserOut, UserUpdate
 from security import hash_password, verify_password
 from services.audit import log_login, log_user_create, log_user_update
@@ -54,7 +55,13 @@ def _user_snapshot(u: User) -> dict:
 
 
 @router.post("/login", response_model=UserOut)
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> UserOut:
+@limiter.limit("10/minute")  # 防登录爆破；登录失败统一 401 防枚举，再加 IP 限速兜底
+def login(
+    request: Request,
+    response: Response,
+    body: LoginIn,
+    db: Session = Depends(get_db),
+) -> UserOut:
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
     user = db.execute(
@@ -114,10 +121,12 @@ def list_users(
 
 
 @router.post("/users", response_model=UserOut, status_code=201)
+@limiter.limit("10/hour")  # 防批量建账号
 def create_user(
+    request: Request,
+    response: Response,
     body: UserCreate,
     admin: AdminUser,
-    request: Request,
     db: Session = Depends(get_db),
 ) -> UserOut:
     if body.role not in ROLES:
