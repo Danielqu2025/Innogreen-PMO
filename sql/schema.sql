@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS project_profile (
   project_code      TEXT NOT NULL UNIQUE,    -- 对外脱敏编号 ENT-01（v1.3）
   company_name      TEXT NOT NULL UNIQUE,
   short_name        TEXT,
+  full_name         TEXT,                    -- 企业名称全称
   -- 公司信息
   credit_code       TEXT UNIQUE,             -- 统一社会信用代码
   registered_cap    DECIMAL(15,2),           -- 注册资本
@@ -113,7 +114,7 @@ CREATE TABLE IF NOT EXISTS project_profile (
   -- 团队信息（JSON）
   team_json         TEXT,
   -- 业务信息
-  business_type     TEXT,                    -- 研发/中试/小规模生产
+  business_type     TEXT,                    -- 研发小试/中试/研发小试和中试混合
   tech_route        TEXT,
   product_target    TEXT,
   market_position   TEXT,

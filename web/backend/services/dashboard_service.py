@@ -16,6 +16,7 @@ from schemas import (
     DelayedTaskOut,
     ProjectIssueFlags,
 )
+from services.progress_service import ensure_current_stages
 
 STALL_DAYS = 14
 DONE_STATUSES = frozenset({"已完成", "已跳过"})
@@ -40,15 +41,18 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
     today = date.today()
     stall_before = (today - timedelta(days=STALL_DAYS)).isoformat()
 
-    projects = (
-        db.execute(
-            select(ProjectProfile)
-            .options(joinedload(ProjectProfile.current_stage))
-            .order_by(ProjectProfile.project_id)
-        )
-        .scalars()
-        .unique()
-        .all()
+    projects = ensure_current_stages(
+        db,
+        list(
+            db.execute(
+                select(ProjectProfile)
+                .options(joinedload(ProjectProfile.current_stage))
+                .order_by(ProjectProfile.project_id)
+            )
+            .scalars()
+            .unique()
+            .all()
+        ),
     )
     stages = (
         db.execute(select(StageMap).order_by(StageMap.sort_order)).scalars().all()
@@ -170,6 +174,8 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
                 project_id=p.project_id,
                 project_code=p.project_code,
                 company_name=p.company_name,
+                short_name=p.short_name,
+                building=p.building,
                 current_stage_id=p.current_stage_id,
                 current_stage_name=stage_name,
                 progress_percent=p.progress_percent or 0,

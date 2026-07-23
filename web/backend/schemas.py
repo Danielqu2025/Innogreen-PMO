@@ -68,6 +68,7 @@ class ProjectOut(BaseModel):
     project_code: str
     company_name: str
     short_name: str | None = None
+    full_name: str | None = None
     business_type: str | None = None
     building: str | None = None
     current_stage_id: int | None = None
@@ -130,6 +131,8 @@ class DashboardProjectOut(BaseModel):
     project_id: int
     project_code: str
     company_name: str | None = None
+    short_name: str | None = None
+    building: str | None = None
     current_stage_id: int | None = None
     current_stage_name: str | None = None
     progress_percent: int
@@ -188,6 +191,8 @@ class CriticalPathNode(BaseModel):
     critical_path: str
     status: str = "待开始"
     blocker_note: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
 
 class CriticalPathEdge(BaseModel):
@@ -218,6 +223,7 @@ class ProjectCreate(BaseModel):
     project_code: str = Field(min_length=1)
     company_name: str = Field(min_length=1)
     short_name: str | None = None
+    full_name: str | None = None
     business_type: str | None = None
     building: str | None = None
     notes: str | None = None
@@ -225,7 +231,9 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     """更新企业档案 - Phase C（progress_percent 仅由任务进度回写，不可手改）"""
+    project_code: str | None = Field(default=None, min_length=1)
     short_name: str | None = None
+    full_name: str | None = None
     business_type: str | None = None
     building: str | None = None
     project_status: str | None = None
@@ -268,6 +276,13 @@ class JournalCreate(BaseModel):
     week_label: str | None = None
 
 
+class JournalUpdate(BaseModel):
+    """更新周进展"""
+    week_start: str | None = Field(default=None, min_length=10, max_length=32)
+    note: str | None = Field(default=None, min_length=1)
+    week_label: str | None = None
+
+
 class PitfallCreate(BaseModel):
     """创建避坑指南 - Phase C3"""
     stage_ref: str = Field(min_length=1)
@@ -294,6 +309,7 @@ class UserOut(BaseModel):
     display_name: str | None = None
     role: str
     is_active: bool
+    created_at: str | None = None
 
 
 class LoginIn(BaseModel):
@@ -315,3 +331,18 @@ class UserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     password: str | None = None
+
+
+class AuditLogOut(BaseModel):
+    """审计日志条目（管理员只读）"""
+    model_config = ConfigDict(from_attributes=True)
+
+    audit_id: int
+    actor: str
+    action: str
+    resource: str
+    resource_id: int | None = None
+    payload: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    created_at: str

@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from models import ProgressJournal, ProjectProfile, TaskDetail
-from schemas import JournalCreate, JournalOut
+from schemas import JournalCreate, JournalOut, JournalUpdate
 from services.audit import log_action
 
 _WEEK_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -118,3 +118,112 @@ def create_journal(
     db.commit()
     db.refresh(row)
     return _to_out(row, task)
+
+
+def _get_journal_row(
+    db: Session, project_id: int, task_id: int, journal_id: int
+) -> ProgressJournal:
+    if not db.get(ProjectProfile, project_id):
+        raise LookupError("企业不存在")
+    row = db.get(ProgressJournal, journal_id)
+    if (
+        not row
+        or row.project_id != project_id
+        or row.task_id != task_id
+    ):
+        raise LookupError("周记不存在")
+    return row
+
+
+def update_journal(
+    db: Session,
+    project_id: int,
+    task_id: int,
+    journal_id: int,
+    body: JournalUpdate,
+    actor: str,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> JournalOut:
+    row = _get_journal_row(db, project_id, task_id, journal_id)
+    task = db.get(TaskDetail, task_id) if task_id else None
+
+    updates = body.model_dump(exclude_unset=True)
+    if not updates:
+        raise ValueError("未提供更新字段")
+
+    before = {
+        "week_start": row.week_start,
+        "week_label": row.week_label,
+        "note": row.note,
+    }
+
+    if "week_start" in updates and updates["week_start"] is not None:
+        week_start = updates["week_start"].strip()[:10]
+        if not _WEEK_RE.match(week_start):
+            raise ValueError("week_start 须为 YYYY-MM-DD")
+        row.week_start = week_start
+    if "note" in updates and updates["note"] is not None:
+        note = updates["note"].strip()
+        if not note:
+            raise ValueError("周记内容不能为空")
+        row.note = note
+    if "week_label" in updates:
+        label = updates["week_label"]
+        row.week_label = label.strip() if label else None
+
+    try:
+        db.flush()
+    except IntegrityError as e:
+        db.rollback()
+        raise ConflictError("相同周次与正文已存在") from e
+
+    log_action(
+        db,
+        actor,
+        "UPDATE",
+        "journal",
+        row.journal_id,
+        payload={"before": before, "after": {
+            "week_start": row.week_start,
+            "week_label": row.week_label,
+            "note": row.note[:200],
+        }},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.commit()
+    db.refresh(row)
+    return _to_out(row, task)
+
+
+def delete_journal(
+    db: Session,
+    project_id: int,
+    task_id: int,
+    journal_id: int,
+    actor: str,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    row = _get_journal_row(db, project_id, task_id, journal_id)
+    payload = {
+        "project_id": project_id,
+        "task_id": task_id,
+        "week_start": row.week_start,
+        "note": row.note[:200],
+    }
+    db.delete(row)
+    log_action(
+        db,
+        actor,
+        "DELETE",
+        "journal",
+        journal_id,
+        payload=payload,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.commit()

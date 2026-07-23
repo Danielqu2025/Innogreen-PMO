@@ -39,8 +39,8 @@ export default function AppLayout() {
             : "/ops";
 
   const items = [
-    { key: "/ops", icon: <DashboardOutlined />, label: <Link to="/ops">Dashboard</Link> },
-    { key: "/ops/projects", icon: <TeamOutlined />, label: <Link to="/ops/projects">企业</Link> },
+    { key: "/ops", icon: <DashboardOutlined />, label: <Link to="/ops">项目看板</Link> },
+    { key: "/ops/projects", icon: <TeamOutlined />, label: <Link to="/ops/projects">企业详情</Link> },
     { key: "/ops/stages", icon: <NodeIndexOutlined />, label: <Link to="/ops/stages">阶段地图</Link> },
     { key: "/ops/pitfalls", icon: <WarningOutlined />, label: <Link to="/ops/pitfalls">避坑指南</Link> },
     ...(user?.role === "admin"
@@ -58,7 +58,7 @@ export default function AppLayout() {
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sider breakpoint="lg" collapsedWidth={0} width={220}>
-        <div style={{ color: "#fff", padding: 16, fontWeight: 600 }}>Innogreen PMO</div>
+        <div style={{ color: "#fff", padding: 16, fontWeight: 600 }}>INNOGREEN 创新绿洲</div>
         <Menu theme="dark" mode="inline" selectedKeys={[selected]} items={items} />
       </Sider>
       <Layout>

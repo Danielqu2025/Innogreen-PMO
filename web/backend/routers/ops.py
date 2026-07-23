@@ -19,6 +19,7 @@ from schemas import (
     DashboardSummary,
     JournalCreate,
     JournalOut,
+    JournalUpdate,
     PitfallOut,
     PitfallCreate,
     ProgressOut,
@@ -36,8 +37,18 @@ from services.dashboard_service import build_dashboard_summary
 from services.critical_path import build_critical_path, get_project_or_none
 from services import journal_service
 from services.pitfall_service import create_pitfall
-from services.progress_service import to_progress_out, upsert_progress
-from services.project_service import ConflictError, create_project, update_project
+from services.progress_service import (
+    ensure_current_stages,
+    list_project_progress,
+    to_progress_out,
+    upsert_progress,
+)
+from services.project_service import (
+    ConflictError,
+    create_project,
+    sort_projects_for_list,
+    update_project,
+)
 from services import task_service
 
 router = APIRouter(prefix="/api/ops", dependencies=[Depends(get_current_user)])
@@ -57,6 +68,7 @@ def _project_out(p: ProjectProfile) -> ProjectOut:
         project_code=p.project_code,
         company_name=p.company_name,
         short_name=p.short_name,
+        full_name=p.full_name,
         business_type=p.business_type,
         building=p.building,
         current_stage_id=p.current_stage_id,
@@ -313,12 +325,9 @@ def list_projects(
     query = (
         select(ProjectProfile)
         .options(joinedload(ProjectProfile.current_stage))
-        .order_by(ProjectProfile.project_id)
     )
     if status:
         query = query.where(ProjectProfile.project_status == status)
-    if stage_id is not None:
-        query = query.where(ProjectProfile.current_stage_id == stage_id)
     if building:
         query = query.where(ProjectProfile.building == building)
     if q:
@@ -327,8 +336,15 @@ def list_projects(
             (ProjectProfile.project_code.like(like))
             | (ProjectProfile.company_name.like(like))
             | (ProjectProfile.short_name.like(like))
+            | (ProjectProfile.full_name.like(like))
         )
-    projects = db.execute(query).scalars().unique().all()
+    # 先按进度刷新 current_stage_id，再按 stage_id 过滤（避免缓存过期漏筛/错筛）
+    projects = ensure_current_stages(
+        db, list(db.execute(query).scalars().unique().all())
+    )
+    if stage_id is not None:
+        projects = [p for p in projects if p.current_stage_id == stage_id]
+    projects = sort_projects_for_list(projects)
     return [_project_out(p) for p in projects]
 
 
@@ -367,7 +383,8 @@ def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectOut:
             404,
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
         )
-    return _project_out(p)
+    refreshed = ensure_current_stages(db, [p])
+    return _project_out(refreshed[0])
 
 
 @router.patch("/projects/{project_id}", response_model=ProjectOut)
@@ -392,6 +409,11 @@ def update_project_endpoint(
             404,
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
         ) from e
+    except ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
     except ValueError as e:
         raise HTTPException(
             400,
@@ -406,16 +428,7 @@ def project_progress(project_id: int, db: Session = Depends(get_db)) -> list[Pro
             404,
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
         )
-    rows = db.execute(
-        select(ProjectProgress, TaskDetail)
-        .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
-        .where(
-            ProjectProgress.project_id == project_id,
-            TaskDetail.is_active == 1,
-        )
-        .order_by(TaskDetail.sort_order)
-    ).all()
-    return [to_progress_out(pg, td) for pg, td in rows]
+    return list_project_progress(db, project_id)
 
 
 @router.get("/projects/{project_id}/journal", response_model=list[JournalOut])
@@ -494,6 +507,76 @@ def create_task_journal(
         raise HTTPException(
             400,
             detail={"error": True, "code": "ERR_VALIDATION", "message": str(e)},
+        ) from e
+
+
+@router.patch(
+    "/projects/{project_id}/tasks/{task_id}/journal/{journal_id}",
+    response_model=JournalOut,
+)
+def update_task_journal(
+    project_id: int,
+    task_id: int,
+    journal_id: int,
+    body: JournalUpdate,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> JournalOut:
+    try:
+        return journal_service.update_journal(
+            db,
+            project_id,
+            task_id,
+            journal_id,
+            body,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    except journal_service.ConflictError as e:
+        raise HTTPException(
+            409,
+            detail={"error": True, "code": "ERR_CONFLICT", "message": str(e)},
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_VALIDATION", "message": str(e)},
+        ) from e
+
+
+@router.delete(
+    "/projects/{project_id}/tasks/{task_id}/journal/{journal_id}",
+    status_code=204,
+)
+def delete_task_journal(
+    project_id: int,
+    task_id: int,
+    journal_id: int,
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+) -> None:
+    try:
+        journal_service.delete_journal(
+            db,
+            project_id,
+            task_id,
+            journal_id,
+            user.username,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except LookupError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
         ) from e
 
 

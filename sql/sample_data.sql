@@ -10,7 +10,7 @@ INSERT INTO project_profile (
   project_code, company_name, short_name, business_type, building,
   current_stage_id, project_status, progress_percent, notes
 ) VALUES (
-  'ENT-01', 'ENT-01', 'ENT-01', '研发', 'F6d-1',
+  'ENT-01', 'ENT-01', 'ENT-01', '研发小试', 'F6d-1',
   3, '卡点', 12, '前期审批中，安全预评价报告待专家评审'
 );
 
@@ -72,7 +72,7 @@ INSERT INTO project_profile (
   project_code, company_name, short_name, business_type, building,
   current_stage_id, project_status, progress_percent, notes
 ) VALUES (
-  'ENT-03', 'ENT-03', 'ENT-03', '小规模生产', 'F6d-1',
+  'ENT-03', 'ENT-03', 'ENT-03', '中试', 'F6d-1',
   7, '进行中', 48, '试生产方案编制中'
 );
 

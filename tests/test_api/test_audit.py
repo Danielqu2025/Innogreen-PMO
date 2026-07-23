@@ -30,7 +30,7 @@ def test_project_create_writes_audit(operator_client):
         json={
             "project_code": "ENT-AUDIT",
             "company_name": "ENT-AUDIT",
-            "business_type": "研发",
+            "business_type": "研发小试",
         },
     )
     assert r.status_code == 201, r.text

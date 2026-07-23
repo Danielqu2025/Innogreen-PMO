@@ -3,6 +3,7 @@ import { Alert, Button, Input, Select, Space, Table, Tag, Typography } from "ant
 import { Link } from "react-router-dom";
 import { api, type Project } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import styles from "./ProjectListPage.module.css";
 
 const statusColor: Record<string, string> = {
   卡点: "error",
@@ -10,6 +11,23 @@ const statusColor: Record<string, string> = {
   已完成: "success",
   未开始: "default",
 };
+
+/** Alternate soft bands for contiguous stage groups (same stage → same tint). */
+function stageBandClasses(rows: Project[]): Map<number | "none", string> {
+  const map = new Map<number | "none", string>();
+  let prev: number | "none" | undefined;
+  // Start with bandB (soft blue) so the first stage contrasts with Ant Design's gray header.
+  let useA = false;
+  for (const r of rows) {
+    const key: number | "none" = r.current_stage_id ?? "none";
+    if (key !== prev) {
+      if (prev !== undefined) useA = !useA;
+      prev = key;
+      map.set(key, useA ? styles.bandA : styles.bandB);
+    }
+  }
+  return map;
+}
 
 export default function ProjectListPage() {
   const { canWrite } = useAuth();
@@ -29,6 +47,8 @@ export default function ProjectListPage() {
   }, [status, q]);
 
   if (error) return <Alert type="error" message={error} />;
+
+  const bandByStage = stageBandClasses(rows);
 
   return (
     <div>
@@ -58,15 +78,25 @@ export default function ProjectListPage() {
         />
       </Space>
       <Table
+        className={styles.table}
         rowKey="project_id"
         dataSource={rows}
         pagination={false}
         scroll={{ x: true }}
+        rowClassName={(r) =>
+          bandByStage.get(r.current_stage_id ?? "none") ?? styles.bandA
+        }
         columns={[
           {
             title: "编号",
             dataIndex: "project_code",
             render: (c, r) => <Link to={`/ops/projects/${r.project_id}`}>{c}</Link>,
+          },
+          {
+            title: "全称",
+            dataIndex: "full_name",
+            ellipsis: true,
+            render: (v: string | null) => v || "—",
           },
           { title: "类型", dataIndex: "business_type" },
           { title: "楼栋", dataIndex: "building" },

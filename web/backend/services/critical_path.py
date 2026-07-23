@@ -44,6 +44,8 @@ def build_critical_path(db: Session, project: ProjectProfile) -> CriticalPathOut
                 critical_path=t.critical_path,
                 status=prog.status if prog else "待开始",
                 blocker_note=prog.blocker_note if prog else None,
+                started_at=prog.started_at if prog else None,
+                completed_at=prog.completed_at if prog else None,
             )
         )
 

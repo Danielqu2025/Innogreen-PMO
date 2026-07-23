@@ -75,29 +75,65 @@ if len(blockers) < 1:
     fail("no blockers")
 
 print("\n=== CURRENT STAGE (auto) ===")
-# 当前阶段 = 已触达任务(进行中/已完成/卡点/已跳过)所在阶段的最大 sort_order；排除阶段 4（公用工程）
-for r in c.execute(
-    """
-    SELECT pp.project_id, pp.project_code, pp.current_stage_id,
-           (
-             SELECT sm.stage_id
-             FROM project_progress pg
-             JOIN task_detail td ON td.task_id = pg.task_id
-             JOIN stage_map sm ON sm.stage_id = td.stage_id
-             WHERE pg.project_id = pp.project_id
-               AND pg.status IN ('进行中', '已完成', '卡点', '已跳过')
-               AND td.is_active = 1
-               AND td.stage_id != 4
-             ORDER BY sm.sort_order DESC
-             LIMIT 1
-           ) AS expected_stage
-    FROM project_profile pp
-    """
+# 双模式（与 progress_service.resolve_current_stage_id 一致）：
+# 1) 阶段5–8任一已触达 → 取最大 sort_order（可越过1/2/3空缺）
+# 2) 否则线性前序钳制：阶段1未触达 → 0；排除阶段4
+LINEAR = (1, 2, 5, 6, 7, 8, 9)
+ADVANCED = {5, 6, 7, 8}
+TOUCH = ("进行中", "已完成", "卡点", "已跳过")
+sort_orders = dict(c.execute("SELECT stage_id, sort_order FROM stage_map"))
+for pp in c.execute(
+    "SELECT project_id, project_code, current_stage_id FROM project_profile"
 ):
-    print(dict(r))
-    if r["current_stage_id"] != r["expected_stage"]:
+    touched = {
+        r[0]
+        for r in c.execute(
+            """
+            SELECT td.stage_id
+            FROM project_progress pg
+            JOIN task_detail td ON td.task_id = pg.task_id
+            WHERE pg.project_id = ?
+              AND pg.status IN (?, ?, ?, ?)
+              AND td.is_active = 1
+              AND td.stage_id != 4
+            """,
+            (pp["project_id"], *TOUCH),
+        )
+    }
+    if not touched:
+        expected = None
+    elif touched & ADVANCED:
+        expected = max(touched, key=lambda sid: sort_orders.get(sid, -1))
+    else:
+        gap_idx = next((i for i, sid in enumerate(LINEAR) if sid not in touched), None)
+        if gap_idx == 0:
+            expected = 0
+        else:
+            ceiling = None
+            if gap_idx is not None:
+                ceiling = sort_orders.get(LINEAR[gap_idx])
+            cands = []
+            for sid in touched:
+                so = sort_orders.get(sid)
+                if so is None:
+                    continue
+                if ceiling is None or so < ceiling:
+                    cands.append((sid, so))
+            if cands:
+                expected = max(cands, key=lambda x: x[1])[0]
+            else:
+                expected = LINEAR[gap_idx - 1] if gap_idx and gap_idx > 0 else 0
+    print(
+        {
+            "project_id": pp["project_id"],
+            "project_code": pp["project_code"],
+            "current_stage_id": pp["current_stage_id"],
+            "expected_stage": expected,
+        }
+    )
+    if pp["current_stage_id"] != expected:
         fail(
-            f"{r['project_code']} stage {r['current_stage_id']} != expected {r['expected_stage']}"
+            f"{pp['project_code']} stage {pp['current_stage_id']} != expected {expected}"
         )
 
 bad = c.execute(

@@ -12,20 +12,23 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type Project, type Stage } from "../api/client";
 
-const BUSINESS_TYPES = ["研发", "中试", "小规模生产"];
+const BUSINESS_TYPES = ["研发小试", "中试", "研发小试和中试混合"];
 const PROJECT_STATUSES = ["未开始", "进行中", "卡点", "已完成", "已退园"];
 
 type CreateValues = {
   project_code: string;
   company_name: string;
   short_name?: string;
+  full_name?: string;
   business_type?: string;
   building?: string;
   notes?: string;
 };
 
 type EditValues = {
+  project_code: string;
   short_name?: string;
+  full_name?: string;
   business_type?: string;
   building?: string;
   project_status?: string;
@@ -60,7 +63,9 @@ export default function ProjectFormPage() {
       .then((r) => {
         setProject(r.data);
         editForm.setFieldsValue({
+          project_code: r.data.project_code,
           short_name: r.data.short_name ?? undefined,
+          full_name: r.data.full_name ?? undefined,
           business_type: r.data.business_type ?? undefined,
           building: r.data.building ?? undefined,
           project_status: r.data.project_status,
@@ -86,6 +91,7 @@ export default function ProjectFormPage() {
         project_code: values.project_code.trim(),
         company_name: values.company_name.trim(),
         short_name: values.short_name?.trim() || null,
+        full_name: values.full_name?.trim() || null,
         business_type: values.business_type || null,
         building: values.building?.trim() || null,
         notes: values.notes?.trim() || null,
@@ -105,7 +111,9 @@ export default function ProjectFormPage() {
     setSubmitting(true);
     try {
       await api.patch(`/api/ops/projects/${id}`, {
+        project_code: values.project_code.trim(),
         short_name: values.short_name?.trim() || null,
+        full_name: values.full_name?.trim() || null,
         business_type: values.business_type || null,
         building: values.building?.trim() || null,
         project_status: values.project_status,
@@ -139,7 +147,7 @@ export default function ProjectFormPage() {
           layout="vertical"
           onFinish={submitCreate}
           style={{ maxWidth: 480 }}
-          initialValues={{ business_type: "研发" }}
+          initialValues={{ business_type: "研发小试" }}
         >
           <Form.Item
             name="project_code"
@@ -158,6 +166,9 @@ export default function ProjectFormPage() {
           </Form.Item>
           <Form.Item name="short_name" label="简称">
             <Input placeholder="可选，默认同编号" />
+          </Form.Item>
+          <Form.Item name="full_name" label="全称">
+            <Input placeholder="企业名称全称" />
           </Form.Item>
           <Form.Item name="business_type" label="业务类型">
             <Select
@@ -189,14 +200,21 @@ export default function ProjectFormPage() {
           onFinish={submitEdit}
           style={{ maxWidth: 480 }}
         >
-          <Form.Item label="企业编号">
-            <Input value={project?.project_code} disabled />
+          <Form.Item
+            name="project_code"
+            label="企业编号"
+            rules={[{ required: true, message: "请输入编号，如 ENT-04" }]}
+          >
+            <Input placeholder="ENT-04" />
           </Form.Item>
           <Form.Item label="进度">
             <Input value={`${project?.progress_percent ?? 0}%（由任务进度自动计算）`} disabled />
           </Form.Item>
           <Form.Item name="short_name" label="简称">
             <Input />
+          </Form.Item>
+          <Form.Item name="full_name" label="全称">
+            <Input placeholder="企业名称全称" />
           </Form.Item>
           <Form.Item name="business_type" label="业务类型">
             <Select

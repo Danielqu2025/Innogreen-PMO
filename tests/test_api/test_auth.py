@@ -108,6 +108,40 @@ def test_viewer_cannot_update_user(viewer_client: TestClient):
     assert r.status_code == 403
 
 
+def test_login_writes_audit(admin_client: TestClient, app):
+    """成功 / 失败登录均写入 audit_log（resource=auth, action=LOGIN）。"""
+    # admin_client 夹具已成功登录一次；再记一条失败
+    with TestClient(app) as anon:
+        fail = anon.post(
+            "/api/auth/login",
+            json={"username": "pytest_admin", "password": "wrong-password"},
+        )
+        assert fail.status_code == 401
+
+    logs = admin_client.get(
+        "/api/auth/audit",
+        params={"resource": "auth", "action": "LOGIN", "limit": 20},
+    )
+    assert logs.status_code == 200
+    items = logs.json()
+    assert len(items) >= 2
+    assert all(i["action"] == "LOGIN" and i["resource"] == "auth" for i in items)
+    payloads = [i.get("payload") or "" for i in items]
+    assert any('"result": "success"' in p for p in payloads)
+    assert any('"result": "fail"' in p for p in payloads)
+
+
+def test_admin_can_list_audit(admin_client: TestClient):
+    r = admin_client.get("/api/auth/audit", params={"limit": 20})
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_viewer_cannot_list_audit(viewer_client: TestClient):
+    r = viewer_client.get("/api/auth/audit")
+    assert r.status_code == 403
+
+
 def test_viewer_can_read_dashboard(viewer_client: TestClient):
     r = viewer_client.get("/api/ops/dashboard/summary")
     assert r.status_code == 200

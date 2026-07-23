@@ -89,12 +89,14 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 # Frontend
 cd web/frontend
 npm install
+npm run lint                  # type check + lint (CI also runs this)
 npm run dev
 ```
 
 - UI: http://127.0.0.1:5173 — login with a username/password (admin created by `PMO_BOOTSTRAP_ADMIN_*` on first start, or via the in-app user management page).
+- Vite dev server proxies `/api` and `/health` → `http://127.0.0.1:8000`
 - API docs: http://127.0.0.1:8000/docs (disable in prod via `PMO_ENABLE_DOCS=false`).
-- Vite dev server proxies `/api` and `/health` → `http://127.0.0.1:8000`. Session cookie is SameSite=Lax (same-origin only). See the "生产部署" section in [web/README.md](web/README.md).
+- Session cookie is SameSite=Lax (same-origin only). See the "生产部署" section in [web/README.md](web/README.md).
 
 ### Tests & backup (CI runs these)
 
@@ -102,6 +104,8 @@ npm run dev
 # API tests (isolated DB at data/test_api.db, never touches dev DB)
 pip install -r web/requirements.txt
 pytest tests/ -v
+pytest tests/test_api/test_auth.py::test_login -v       # run single test
+pytest tests/ -k test_login -v                          # run tests matching pattern
 
 # Backup the dev DB to data/backups/ (Online Backup API, transaction-consistent snapshot)
 python scripts/backup_db.py
@@ -109,13 +113,6 @@ python scripts/backup_db.py --db-path data/innogreen_pmo.db
 ```
 
 CI (`.github/workflows/ci.yml`) runs `pytest tests/` on Python 3.12 and `npm run lint && npm run build` (oxlint + `tsc`/vite) on Node 20. There are no frontend unit tests.
-
-### Python Dependencies
-
-```bash
-pip install openpyxl
-pip install -r web/requirements.txt
-```
 
 ## Directory Structure
 

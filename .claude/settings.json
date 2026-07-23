@@ -21,7 +21,14 @@
       "Bash(python -c \"from main import app; print\\('Backend imports OK'\\)\")",
       "Bash(npm run *)",
       "Bash(python -c \"from main import app; from database import engine; print\\('Backend OK'\\)\")",
-      "Bash(python -c \"from main import app; from models import AuditLog; print\\('Backend OK - AuditLog model added'\\)\")"
+      "Bash(python -c \"from main import app; from models import AuditLog; print\\('Backend OK - AuditLog model added'\\)\")",
+      "Bash(git commit -m 'feat: Phase B Web app scaffolding + Phase A audit infrastructure *)",
+      "Bash(git config *)",
+      "mcp__github__get_me",
+      "mcp__github__create_repository",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "E:\\claude\\Innogreen-PMO\\data"

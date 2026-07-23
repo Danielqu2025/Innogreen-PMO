@@ -141,3 +141,25 @@ def log_user_update(
         payload={"before": before, "after": after},
         ip_address=ip_address, user_agent=user_agent,
     )
+
+
+def log_login(
+    db: Session,
+    actor: str,
+    *,
+    success: bool,
+    user_id: int | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> int:
+    """记录登录尝试（成功/失败；不区分失败原因，防枚举）"""
+    return log_action(
+        db,
+        actor,
+        "LOGIN",
+        "auth",
+        user_id,
+        payload={"result": "success" if success else "fail"},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )

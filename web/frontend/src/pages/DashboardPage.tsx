@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Col,
@@ -45,7 +45,12 @@ function StageBars({ byStage }: { byStage?: Record<string, number> }) {
             }}
           >
             <span>{name}</span>
-            <Typography.Text type="secondary">{count}</Typography.Text>
+            <Typography.Text
+              strong
+              style={{ color: "rgba(0, 0, 0, 0.88)", fontSize: 15 }}
+            >
+              {count}
+            </Typography.Text>
           </div>
           <Progress
             percent={Math.round((100 * count) / max)}
@@ -59,18 +64,25 @@ function StageBars({ byStage }: { byStage?: Record<string, number> }) {
   );
 }
 
-function riskReason(p: DashboardProject): string {
-  const parts: string[] = [];
-  if (p.flags.blocker) parts.push("存在卡点任务");
-  if (p.flags.delayed) parts.push("有任务计划完成日已过");
-  if (p.flags.stalled) {
-    parts.push(
-      p.last_journal_week
-        ? `周记停滞（最近 ${p.last_journal_week}）`
-        : "无周记更新",
-    );
+/** task_code 分段比较，从后到前（如 8.1 > 5.2.1） */
+function cmpTaskCodeDesc(a?: string | null, b?: string | null): number {
+  const parse = (code?: string | null) =>
+    (code ?? "")
+      .split(".")
+      .filter(Boolean)
+      .map((p) => {
+        const n = Number(p);
+        return Number.isFinite(n) ? n : 0;
+      });
+  const pa = parse(a);
+  const pb = parse(b);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da !== db) return db - da;
   }
-  return parts.join("；") || "—";
+  return 0;
 }
 
 export default function DashboardPage() {
@@ -84,37 +96,32 @@ export default function DashboardPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  const riskProjects = useMemo(() => {
-    if (!data?.projects) return [];
-    return data.projects.filter(
-      (p) => p.flags?.blocker || p.flags?.delayed || p.flags?.stalled,
-    );
-  }, [data]);
-
   if (error) return <Alert type="error" message={error} />;
   if (!data) return <Typography.Text>加载中…</Typography.Text>;
 
   const projects = data.projects ?? [];
   const delayedTasks = data.delayed_tasks ?? [];
   const blockers = data.blockers ?? [];
-  const counts = data.counts ?? {
-    blocker_projects: 0,
-    delayed_projects: 0,
-    stalled_projects: 0,
-  };
   const phases = data.phase_buckets ?? {
     access_projects: 0,
     construction_projects: 0,
     operation_projects: 0,
   };
 
+  // 与第1部分项目表同序；同项目内问题按 task_code 从后到前
+  const projectOrder = new Map(projects.map((p, i) => [p.project_id, i]));
+  const projectLabel = new Map(
+    projects.map((p) => [p.project_id, p.short_name || p.project_code]),
+  );
+
   const todoItems = [
     ...blockers.map((b) => ({
       key: `b-${b.project_id}-${b.task_id}`,
       kind: "卡点" as const,
       project_id: b.project_id,
-      project_code: b.project_code,
+      project_label: projectLabel.get(b.project_id) ?? b.project_code,
       task_id: b.task_id,
+      task_code: b.task_code ?? null,
       title: `${b.task_code ?? ""} ${b.task}`.trim(),
       detail: b.note || "需处理卡点",
     })),
@@ -122,12 +129,20 @@ export default function DashboardPage() {
       key: `d-${t.project_id}-${t.task_id}`,
       kind: "延期" as const,
       project_id: t.project_id,
-      project_code: t.project_code,
+      project_label: projectLabel.get(t.project_id) ?? t.project_code,
       task_id: t.task_id,
+      task_code: t.task_code ?? null,
       title: `${t.task_code ?? ""} ${t.task}`.trim(),
       detail: `计划完成 ${t.planned_end} · 当前 ${t.status}`,
     })),
-  ];
+  ].sort((a, b) => {
+    const oa = projectOrder.get(a.project_id) ?? Number.MAX_SAFE_INTEGER;
+    const ob = projectOrder.get(b.project_id) ?? Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+    const byCode = cmpTaskCodeDesc(a.task_code, b.task_code);
+    if (byCode !== 0) return byCode;
+    return a.kind.localeCompare(b.kind);
+  });
 
   return (
     <div>
@@ -166,10 +181,18 @@ export default function DashboardPage() {
             columns={[
               {
                 title: "项目",
-                dataIndex: "project_code",
-                render: (code: string, row: DashboardProject) => (
-                  <Link to={`/ops/projects/${row.project_id}`}>{code}</Link>
+                dataIndex: "short_name",
+                render: (_: string | null, row: DashboardProject) => (
+                  <Link to={`/ops/projects/${row.project_id}`}>
+                    {row.short_name || row.project_code}
+                  </Link>
                 ),
+              },
+              {
+                title: "楼栋号",
+                dataIndex: "building",
+                width: 100,
+                render: (v: string | null) => v || "—",
               },
               {
                 title: "当前阶段",
@@ -191,76 +214,31 @@ export default function DashboardPage() {
                   <Tag color={statusColor[s] || "default"}>{s}</Tag>
                 ),
               },
+              {
+                title: "风险",
+                width: 160,
+                render: (_: unknown, row: DashboardProject) => {
+                  const flags = row.flags;
+                  if (!flags?.blocker && !flags?.delayed && !flags?.stalled) {
+                    return "—";
+                  }
+                  return (
+                    <Space size={4} wrap>
+                      {flags.blocker && <Tag color="error">卡点</Tag>}
+                      {flags.delayed && <Tag color="warning">延期</Tag>}
+                      {flags.stalled && <Tag>停滞</Tag>}
+                    </Space>
+                  );
+                },
+              },
             ]}
           />
         </Col>
       </Row>
 
-      {/* —— 2. 风险 —— */}
+      {/* —— 2. 待办 —— */}
       <Typography.Title level={4} style={{ marginTop: 32 }}>
-        2. 推进风险：延迟 / 停滞 / 卡点的项目
-      </Typography.Title>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={8}>
-          <Statistic
-            title="卡点项目"
-            value={counts.blocker_projects}
-            valueStyle={{ color: "#cf1322" }}
-          />
-        </Col>
-        <Col xs={8}>
-          <Statistic
-            title="延期项目"
-            value={counts.delayed_projects}
-            valueStyle={{ color: "#d48806" }}
-          />
-        </Col>
-        <Col xs={8}>
-          <Statistic title="停滞项目" value={counts.stalled_projects} />
-        </Col>
-      </Row>
-      <Table
-        size="small"
-        rowKey="project_id"
-        pagination={{ pageSize: 8, hideOnSinglePage: true }}
-        locale={{ emptyText: "暂无风险项目" }}
-        dataSource={riskProjects}
-        columns={[
-          {
-            title: "项目",
-            dataIndex: "project_code",
-            width: 100,
-            render: (code: string, row: DashboardProject) => (
-              <Link to={`/ops/projects/${row.project_id}`}>{code}</Link>
-            ),
-          },
-          {
-            title: "风险",
-            width: 200,
-            render: (_: unknown, row: DashboardProject) => (
-              <Space size={4} wrap>
-                {row.flags.blocker && <Tag color="error">卡点</Tag>}
-                {row.flags.delayed && <Tag color="warning">延期</Tag>}
-                {row.flags.stalled && <Tag>停滞</Tag>}
-              </Space>
-            ),
-          },
-          {
-            title: "阶段",
-            dataIndex: "current_stage_name",
-            ellipsis: true,
-            render: (v: string | null) => v || "—",
-          },
-          {
-            title: "说明",
-            render: (_: unknown, row: DashboardProject) => riskReason(row),
-          },
-        ]}
-      />
-
-      {/* —— 3. 待办 —— */}
-      <Typography.Title level={4} style={{ marginTop: 32 }}>
-        3. 待办问题：需要具体解决什么
+        2. 待办问题：需要具体解决什么
       </Typography.Title>
       <List
         bordered
@@ -285,7 +263,7 @@ export default function DashboardPage() {
                     {item.kind}
                   </Tag>
                   <Link to={`/ops/projects/${item.project_id}`}>
-                    {item.project_code}
+                    {item.project_label}
                   </Link>
                   <span>{item.title}</span>
                 </Space>

@@ -1,0 +1,40 @@
+/* Slightly darker than Ant default (#fafafa) so header separates from stage bands */
+
+.table :global(.ant-table-thead > tr > th) {
+
+  background: #e8e8e8;
+
+}
+
+
+
+/* Soft stage-band backgrounds for contiguous project groups */
+
+.bandA :global(td) {
+
+  background-color: #f0f0f1;
+
+}
+
+
+
+.bandB :global(td) {
+
+  background-color: #d6e6f7;
+
+}
+
+
+
+/* Warm amber hover — distinct from gray/blue stage bands */
+
+.table :global(.ant-table-tbody > tr:hover > td),
+
+.bandA:hover :global(td),
+
+.bandB:hover :global(td) {
+
+  background-color: #ffe0ad;
+
+}
+

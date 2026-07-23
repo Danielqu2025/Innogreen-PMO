@@ -4,20 +4,21 @@
 - POST /api/auth/logout  登出（清会话）
 - GET  /api/auth/me      当前用户（前端 AuthContext 探测）
 - 管理员专用：GET/POST /api/auth/users、PATCH /api/auth/users/{id}
+- 管理员专用：GET /api/auth/audit（审计 / 登录记录）
 """
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
 from deps import ROLES, AdminUser, CurrentUser
-from models import User
-from schemas import LoginIn, UserCreate, UserOut, UserUpdate
+from models import AuditLog, User
+from schemas import AuditLogOut, LoginIn, UserCreate, UserOut, UserUpdate
 from security import hash_password, verify_password
-from services.audit import log_user_create, log_user_update
+from services.audit import log_login, log_user_create, log_user_update
 
 router = APIRouter(prefix="/api/auth")
 
@@ -39,6 +40,7 @@ def _user_out(u: User) -> UserOut:
         display_name=u.display_name,
         role=u.role,
         is_active=bool(u.is_active),
+        created_at=u.created_at,
     )
 
 
@@ -53,18 +55,37 @@ def _user_snapshot(u: User) -> dict:
 
 @router.post("/login", response_model=UserOut)
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> UserOut:
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
     user = db.execute(
         select(User).where(User.username == body.username)
     ).scalar_one_or_none()
-    # 用户不存在/密码错/已禁用 → 统一 401
+    # 用户不存在/密码错/已禁用 → 统一 401（审计不区分原因，防枚举）
     if (
         user is None
         or not verify_password(body.password, user.password_hash)
         or user.is_active != 1
     ):
+        log_login(
+            db,
+            body.username.strip() or "?",
+            success=False,
+            ip_address=ip,
+            user_agent=ua,
+        )
+        db.commit()
         raise _LOGIN_FAIL
     request.session.clear()  # 签名 cookie 无服务端 ID 可轮换，clear 即防会话固定
     request.session["user_id"] = user.user_id
+    log_login(
+        db,
+        user.username,
+        success=True,
+        user_id=user.user_id,
+        ip_address=ip,
+        user_agent=ua,
+    )
+    db.commit()
     return _user_out(user)
 
 
@@ -213,3 +234,21 @@ def update_user(
     db.commit()
     db.refresh(target)
     return _user_out(target)
+
+
+@router.get("/audit", response_model=list[AuditLogOut])
+def list_audit(
+    _admin: AdminUser,
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+    resource: str | None = Query(None, description="按资源过滤，如 auth / users / projects"),
+    action: str | None = Query(None, description="按动作过滤，如 LOGIN / CREATE / UPDATE"),
+) -> list[AuditLogOut]:
+    """管理员只读：审计日志 / 登录记录（resource=auth&action=LOGIN）。"""
+    q = select(AuditLog)
+    if resource:
+        q = q.where(AuditLog.resource == resource)
+    if action:
+        q = q.where(AuditLog.action == action)
+    q = q.order_by(AuditLog.audit_id.desc()).limit(limit)
+    return list(db.execute(q).scalars().all())

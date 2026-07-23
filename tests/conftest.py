@@ -129,7 +129,8 @@ def ent01(operator_client):
     project = next(p for p in projects if p["project_code"] == "ENT-01")
     pid = project["project_id"]
     progress = operator_client.get(f"/api/ops/projects/{pid}/progress").json()
-    by_task = {row["task_id"]: row for row in progress}
+    # progress_id=0 为无落库占位行；恢复时只认真实 project_progress
+    by_task = {row["task_id"]: row for row in progress if row.get("progress_id")}
     original_task_ids = set(by_task.keys())
 
     snapshot = {

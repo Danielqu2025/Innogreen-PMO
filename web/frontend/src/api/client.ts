@@ -30,6 +30,7 @@ export type User = {
   display_name: string | null;
   role: Role;
   is_active: boolean;
+  created_at?: string | null;
 };
 
 export async function login(username: string, password: string): Promise<User> {
@@ -60,7 +61,7 @@ export type UserCreate = {
 };
 
 export type UserUpdate = {
-  display_name?: string;
+  display_name?: string | null;
   role?: Role;
   is_active?: boolean;
   password?: string;
@@ -83,12 +84,34 @@ export async function updateUser(id: number, body: UserUpdate): Promise<User> {
   return r.data;
 }
 
+export type AuditLog = {
+  audit_id: number;
+  actor: string;
+  action: string;
+  resource: string;
+  resource_id: number | null;
+  payload: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export async function listAuditLogs(params?: {
+  limit?: number;
+  resource?: string;
+  action?: string;
+}): Promise<AuditLog[]> {
+  const r = await api.get<AuditLog[]>("/api/auth/audit", { params });
+  return r.data;
+}
+
 // ============ 业务类型 ============
 export type Project = {
   project_id: number;
   project_code: string;
   company_name: string;
   short_name: string | null;
+  full_name: string | null;
   business_type: string | null;
   building: string | null;
   current_stage_id: number | null;
@@ -240,6 +263,27 @@ export async function createTaskJournal(
   return r.data;
 }
 
+export async function updateTaskJournal(
+  projectId: number,
+  taskId: number,
+  journalId: number,
+  body: { week_start?: string; note?: string; week_label?: string | null },
+): Promise<JournalEntry> {
+  const r = await api.patch<JournalEntry>(
+    `/api/ops/projects/${projectId}/tasks/${taskId}/journal/${journalId}`,
+    body,
+  );
+  return r.data;
+}
+
+export async function deleteTaskJournal(
+  projectId: number,
+  taskId: number,
+  journalId: number,
+): Promise<void> {
+  await api.delete(`/api/ops/projects/${projectId}/tasks/${taskId}/journal/${journalId}`);
+}
+
 export type Blocker = {
   project_id: number;
   project_code: string;
@@ -255,6 +299,8 @@ export type DashboardProject = {
   project_id: number;
   project_code: string;
   company_name: string | null;
+  short_name: string | null;
+  building: string | null;
   current_stage_id: number | null;
   current_stage_name: string | null;
   progress_percent: number;
@@ -319,9 +365,12 @@ export type CriticalPath = {
     task_id: number;
     task_code: string | null;
     task_name: string;
+    stage_id: number;
     stage_name: string;
     status: string;
     blocker_note: string | null;
+    started_at: string | null;
+    completed_at: string | null;
   }>;
   edges: Array<{ from_task_id: number; to_task_id: number }>;
 };

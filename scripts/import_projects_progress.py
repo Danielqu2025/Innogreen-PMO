@@ -240,23 +240,49 @@ def recalc_progress(conn: sqlite3.Connection, project_id: int) -> int:
         (project_id,),
     ).fetchone()
     status = "卡点" if blocked else "进行中"
-    # 当前阶段 = 已触达任务所在阶段的最大 sort_order；排除公用工程阶段 4
-    row = conn.execute(
-        """
-        SELECT sm.stage_id
-        FROM project_progress p
-        JOIN task_detail t ON t.task_id = p.task_id
-        JOIN stage_map sm ON sm.stage_id = t.stage_id
-        WHERE p.project_id = ?
-          AND t.is_active = 1
-          AND t.stage_id != 4
-          AND p.status IN ('进行中', '已完成', '卡点', '已跳过')
-        ORDER BY sm.sort_order DESC
-        LIMIT 1
-        """,
-        (project_id,),
-    ).fetchone()
-    stage_id = row[0] if row else None
+    # 当前阶段双模式（与 progress_service.resolve_current_stage_id 一致）
+    TOUCH = ("进行中", "已完成", "卡点", "已跳过")
+    LINEAR = (1, 2, 5, 6, 7, 8, 9)
+    ADVANCED = {5, 6, 7, 8}
+    touched = {
+        r[0]
+        for r in conn.execute(
+            """
+            SELECT t.stage_id
+            FROM project_progress p
+            JOIN task_detail t ON t.task_id = p.task_id
+            WHERE p.project_id = ?
+              AND t.is_active = 1
+              AND t.stage_id != 4
+              AND p.status IN (?, ?, ?, ?)
+            """,
+            (project_id, *TOUCH),
+        )
+    }
+    sort_orders = dict(conn.execute("SELECT stage_id, sort_order FROM stage_map"))
+    if not touched:
+        stage_id = None
+    elif touched & ADVANCED:
+        stage_id = max(touched, key=lambda sid: sort_orders.get(sid, -1))
+    else:
+        gap_idx = next((i for i, sid in enumerate(LINEAR) if sid not in touched), None)
+        if gap_idx == 0:
+            stage_id = 0
+        else:
+            ceiling = None
+            if gap_idx is not None:
+                ceiling = sort_orders.get(LINEAR[gap_idx])
+            cands = []
+            for sid in touched:
+                so = sort_orders.get(sid)
+                if so is None:
+                    continue
+                if ceiling is None or so < ceiling:
+                    cands.append((sid, so))
+            if cands:
+                stage_id = max(cands, key=lambda x: x[1])[0]
+            else:
+                stage_id = LINEAR[gap_idx - 1] if gap_idx and gap_idx > 0 else 0
 
     conn.execute(
         """
