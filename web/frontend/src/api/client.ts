@@ -374,3 +374,104 @@ export type CriticalPath = {
   }>;
   edges: Array<{ from_task_id: number; to_task_id: number }>;
 };
+
+// ============ 数据导入/导出（管理员 + 操作员；DB 导入仅管理员） ============
+export type ExportSheetKey =
+  | "stages"
+  | "tasks"
+  | "projects"
+  | "progress"
+  | "pitfalls";
+
+export type ImportSummary = {
+  dry_run: boolean;
+  projects_created: number;
+  projects_updated: number;
+  progress_upserted: number;
+  progress_skipped: number;
+  warnings: string[];
+  errors: string[];
+};
+
+export async function downloadExportExcel(
+  sheets?: ExportSheetKey[],
+): Promise<void> {
+  const r = await api.get("/api/ops/export/excel", {
+    responseType: "blob",
+    params:
+      sheets && sheets.length
+        ? { sheets: sheets.join(",") }
+        : undefined,
+  });
+  const cd = r.headers["content-disposition"] as string | undefined;
+  let filename = "innogreen_pmo_export.xlsx";
+  const m = cd?.match(/filename="?([^";]+)"?/i);
+  if (m?.[1]) filename = m[1];
+  const url = URL.createObjectURL(r.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadExportDb(): Promise<void> {
+  const r = await api.get("/api/ops/export/db", { responseType: "blob" });
+  const cd = r.headers["content-disposition"] as string | undefined;
+  let filename = "innogreen_pmo.db";
+  const m = cd?.match(/filename="?([^";]+)"?/i);
+  if (m?.[1]) filename = m[1];
+  const url = URL.createObjectURL(r.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadImportTemplate(): Promise<void> {
+  const r = await api.get("/api/ops/import/template.xlsx", {
+    responseType: "blob",
+  });
+  const cd = r.headers["content-disposition"] as string | undefined;
+  let filename = "innogreen_pmo_import_template.xlsx";
+  const m = cd?.match(/filename="?([^";]+)"?/i);
+  if (m?.[1]) filename = m[1];
+  const url = URL.createObjectURL(r.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importExcel(
+  file: File,
+  dryRun = true,
+): Promise<ImportSummary> {
+  const form = new FormData();
+  form.append("file", file);
+  const r = await api.post<ImportSummary>("/api/ops/import/excel", form, {
+    params: { dry_run: dryRun },
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 60000,
+  });
+  return r.data;
+}
+
+export type DbImportResult = {
+  ok: boolean;
+  backup_path: string;
+  message: string;
+};
+
+export async function importDb(file: File): Promise<DbImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const r = await api.post<DbImportResult>("/api/ops/import/db", form, {
+    params: { confirm: true },
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+  return r.data;
+}

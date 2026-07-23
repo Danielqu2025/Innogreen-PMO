@@ -40,11 +40,15 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.pmo_cors_origins.split(",") if o.strip()]
 
     @property
-    def db_url(self) -> str:
+    def db_path(self) -> Path:
         path = Path(self.pmo_db_path)
         if not path.is_absolute():
             path = (Path(__file__).resolve().parents[1] / path).resolve()
-        return f"sqlite:///{path.as_posix()}"
+        return path
+
+    @property
+    def db_url(self) -> str:
+        return f"sqlite:///{self.db_path.as_posix()}"
 
 
 @lru_cache

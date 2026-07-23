@@ -21,6 +21,8 @@ const PitfallFormPage = lazy(() => import("./pages/PitfallFormPage"));
 const PitfallDetailPage = lazy(() => import("./pages/PitfallDetailPage"));
 const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
 const TaskCatalogPage = lazy(() => import("./pages/TaskCatalogPage"));
+const DataExportPage = lazy(() => import("./pages/DataExportPage"));
+const DataImportPage = lazy(() => import("./pages/DataImportPage"));
 const TenantPlaceholderPage = lazy(() => import("./pages/TenantPlaceholderPage"));
 
 const Fallback = <div>加载中...</div>;
@@ -90,6 +92,14 @@ export default function App() {
                 <Route
                   path="tasks"
                   element={withSuspense(<TaskCatalogPage />)}
+                />
+                <Route
+                  path="settings/export"
+                  element={withSuspense(<DataExportPage />)}
+                />
+                <Route
+                  path="settings/import"
+                  element={withSuspense(<DataImportPage />)}
                 />
               </Route>
             </Route>

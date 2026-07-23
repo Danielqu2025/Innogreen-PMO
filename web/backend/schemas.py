@@ -208,6 +208,24 @@ class CriticalPathOut(BaseModel):
     edges: list[CriticalPathEdge]
 
 
+class ImportSummaryOut(BaseModel):
+    """Excel 导入结果摘要（企业档案 + 任务进度）"""
+    dry_run: bool
+    projects_created: int = 0
+    projects_updated: int = 0
+    progress_upserted: int = 0
+    progress_skipped: int = 0
+    warnings: list[str] = []
+    errors: list[str] = []
+
+
+class DbImportResultOut(BaseModel):
+    """SQLite 全量替换导入结果"""
+    ok: bool = True
+    backup_path: str
+    message: str = "已用上传的数据库替换当前库；先前库已自动备份"
+
+
 class ErrorBody(BaseModel):
     error: bool = True
     code: str

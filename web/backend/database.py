@@ -34,3 +34,8 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def dispose_engine() -> None:
+    """关闭连接池，便于替换 SQLite 文件后重新打开。"""
+    engine.dispose()

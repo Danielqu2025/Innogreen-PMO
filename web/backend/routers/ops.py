@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -17,6 +17,8 @@ from schemas import (
     BlockerOut,
     CriticalPathOut,
     DashboardSummary,
+    DbImportResultOut,
+    ImportSummaryOut,
     JournalCreate,
     JournalOut,
     JournalUpdate,
@@ -724,6 +726,205 @@ def stage_pitfalls(stage_id: int, db: Session = Depends(get_db)) -> list[Pitfall
 @router.get("/dashboard/summary", response_model=DashboardSummary)
 def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     return build_dashboard_summary(db)
+
+
+@router.get("/export/excel")
+def export_excel(
+    user: WriteUser,
+    db: Session = Depends(get_db),
+    sheets: str | None = Query(
+        None,
+        description="逗号分隔：stages,tasks,projects,progress,pitfalls（或中文 sheet 名）；缺省全部",
+    ),
+):
+    """导出多 sheet Excel。管理员与操作员可用；可用 sheets 筛选。"""
+    from datetime import datetime
+
+    from fastapi.responses import Response
+
+    from services.export_service import build_export_workbook, parse_export_sheets
+
+    try:
+        keys = parse_export_sheets(sheets)
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
+        ) from e
+
+    data = build_export_workbook(db, sheets=keys)
+    filename = f"innogreen_pmo_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/db")
+def export_db(user: WriteUser):
+    """导出当前 SQLite 库事务一致快照（.db）。管理员与操作员可用。"""
+    from datetime import datetime
+
+    from fastapi.responses import Response
+
+    from config import get_settings
+    from services.db_transfer import snapshot_db_bytes
+
+    try:
+        data = snapshot_db_bytes(get_settings().db_path)
+    except FileNotFoundError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+    filename = f"innogreen_pmo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    return Response(
+        content=data,
+        media_type="application/x-sqlite3",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/import/template.xlsx")
+def import_template(user: WriteUser):
+    """下载 Excel 导入模板（说明字段表 + 企业档案/任务进度示例）。管理员与操作员可用。"""
+    from fastapi.responses import Response
+
+    from services.export_service import build_import_template
+
+    data = build_import_template()
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="innogreen_pmo_import_template.xlsx"'
+        },
+    )
+
+
+@router.post("/import/excel", response_model=ImportSummaryOut)
+async def import_excel(
+    request: Request,
+    user: WriteUser,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    dry_run: bool = Query(True, description="试跑不写库；false 时真正写入"),
+) -> ImportSummaryOut:
+    """导入企业档案 + 任务进度。管理员与操作员可用；不修改阶段/任务目录。"""
+    from services.import_service import import_projects_progress_xlsx
+
+    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(
+            400,
+            detail={
+                "error": True,
+                "code": "ERR_BAD_REQUEST",
+                "message": "请上传 .xlsx Excel 文件",
+            },
+        )
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": "文件为空"},
+        )
+
+    summary = import_projects_progress_xlsx(
+        db,
+        raw,
+        actor=user.username,
+        dry_run=dry_run,
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    if summary.errors:
+        raise HTTPException(
+            400,
+            detail={
+                "error": True,
+                "code": "ERR_IMPORT",
+                "message": summary.errors[0],
+                "summary": summary.to_dict(),
+            },
+        )
+    return ImportSummaryOut(**summary.to_dict())
+
+
+@router.post("/import/db", response_model=DbImportResultOut)
+async def import_db(
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    confirm: bool = Query(
+        False,
+        description="必须为 true：确认将用上传的 .db 全量替换当前库",
+    ),
+) -> DbImportResultOut:
+    """用上传的 SQLite .db 全量替换当前库。危险操作：仅管理员。"""
+    from config import get_settings
+    from services.audit import log_action
+    from services.db_transfer import replace_live_db
+
+    if not confirm:
+        raise HTTPException(
+            400,
+            detail={
+                "error": True,
+                "code": "ERR_CONFIRM_REQUIRED",
+                "message": "全量替换数据库需确认：请传 confirm=true",
+            },
+        )
+    name = (file.filename or "").lower()
+    if not name.endswith(".db"):
+        raise HTTPException(
+            400,
+            detail={
+                "error": True,
+                "code": "ERR_BAD_REQUEST",
+                "message": "请上传 .db SQLite 文件",
+            },
+        )
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": "文件为空"},
+        )
+
+    # 先写审计（替换前），再关 Session 并换文件
+    log_action(
+        db,
+        user.username,
+        "IMPORT",
+        "database",
+        None,
+        payload={"bytes": len(raw), "filename": file.filename},
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    db.commit()
+    db.close()
+
+    try:
+        backup_path = replace_live_db(get_settings().db_path, raw)
+    except ValueError as e:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_IMPORT", "message": str(e)},
+        ) from e
+    except FileNotFoundError as e:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+        ) from e
+
+    return DbImportResultOut(
+        ok=True,
+        backup_path=str(backup_path),
+        message="已用上传的数据库替换当前库；先前库已自动备份。如页面异常请刷新或重新登录。",
+    )
 
 
 tenant_router = APIRouter(prefix="/api/tenant")
