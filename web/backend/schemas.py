@@ -351,6 +351,12 @@ class UserUpdate(BaseModel):
     password: str | None = None
 
 
+class ChangePasswordIn(BaseModel):
+    """用户自助改密（Phase C+）：要求传旧密码验证身份。"""
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
 class AuditLogOut(BaseModel):
     """审计日志条目（管理员只读）"""
     model_config = ConfigDict(from_attributes=True)

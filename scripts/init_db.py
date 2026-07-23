@@ -144,6 +144,12 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         exec_sql_file(cursor, SQL_DIR / "triggers.sql", required=False)
         log("Triggers created")
 
+        # Phase D: audit_log append-only 触发器（防审计日志被篡改/删除）
+        audit_immutable = SQL_DIR / "audit_log_immutable.sql"
+        if audit_immutable.exists():
+            exec_sql_file(cursor, audit_immutable, required=False)
+            log("audit_log immutability triggers ensured")
+
         log("Importing seed data...")
         if not exec_sql_file(cursor, SQL_DIR / "seed.sql", required=True):
             return False

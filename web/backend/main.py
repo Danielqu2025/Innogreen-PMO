@@ -84,10 +84,39 @@ def ensure_bootstrap_admin() -> None:
         print(f"[bootstrap] 已创建管理员: {username}")
 
 
+def ensure_audit_immutable_triggers() -> None:
+    """旧库升级：装 audit_log 不可篡改触发器（Phase D）。
+
+    新建库已由 scripts/init_db.py 在建表阶段安装，老库（v1.3 早期版本）
+    在此函数里幂等补装。
+
+    注意：SQLAlchemy 不支持多语句 DDL 执行（含 `;` 的 CREATE TRIGGER），
+    故通过 engine 拿原始 sqlite3 连接、用 executescript() 一次跑完。
+    """
+    import sqlite3
+
+    from config import get_settings
+
+    sql_path = Path(__file__).resolve().parents[2] / "sql" / "audit_log_immutable.sql"
+    if not sql_path.exists():
+        return
+    # engine 是 SQLAlchemy Engine；拿 raw connection 转为 sqlite3 才能 executescript。
+    # 这里直接用 sqlite3 连接 settings.db_path：避免和 ORM 事务竞争。
+    db_path = get_settings().db_path
+    raw_conn = sqlite3.connect(str(db_path))
+    try:
+        raw_conn.executescript(sql_path.read_text(encoding="utf-8"))
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
+    print("[migrate] audit_log append-only triggers ensured")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_task_is_active_column()
     ensure_progress_schedule_columns()
+    ensure_audit_immutable_triggers()
     ensure_bootstrap_admin()
     yield
 

@@ -15,6 +15,17 @@ from models import User
 ROLES = ("admin", "operator", "viewer")
 
 
+def escape_like(value: str) -> str:
+    """转义 LIKE 通配符与转义字符自身。
+
+    SQLite 的 LIKE 运算符：% 匹配任意序列，_ 匹配单字符。
+    用户在搜索框输入 `%` 或 `_` 会导致模糊匹配范围扩大或绕过精确匹配
+    （如搜 `ENT-01_` 会同时命中 ENT-010/ENT-011...）。
+    配合 SQLAlchemy 的 `.like(..., escape='\\\\')` 使用，转义符约定为反斜杠。
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """会话 cookie → User。未登录 / 用户不存在 / 已禁用均返回 401（让前端登出）。"""
     user_id = request.session.get("user_id")

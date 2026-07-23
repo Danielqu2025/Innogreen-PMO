@@ -17,9 +17,21 @@ from database import get_db
 from deps import ROLES, AdminUser, CurrentUser
 from models import AuditLog, User
 from rate_limit import limiter
-from schemas import AuditLogOut, LoginIn, UserCreate, UserOut, UserUpdate
+from schemas import (
+    AuditLogOut,
+    ChangePasswordIn,
+    LoginIn,
+    UserCreate,
+    UserOut,
+    UserUpdate,
+)
 from security import hash_password, verify_password
-from services.audit import log_login, log_user_create, log_user_update
+from services.audit import (
+    log_login,
+    log_user_create,
+    log_user_update,
+    log_action,
+)
 
 router = APIRouter(prefix="/api/auth")
 
@@ -105,6 +117,57 @@ def logout(request: Request) -> dict:
 @router.get("/me", response_model=UserOut)
 def me(user: CurrentUser) -> UserOut:
     return _user_out(user)
+
+
+@router.post("/change-password", status_code=200)
+@limiter.limit("10/hour")  # 防暴力改密（旧密码错误尝试）
+def change_password(
+    request: Request,
+    response: Response,
+    body: ChangePasswordIn,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    """自助改密：要求传旧密码验证身份。
+
+    与 admin 重置密码（PATCH /users/{id}）的区别：admin 改密不需要旧密码（特权操作），
+    本端点是登录用户自己改，必须先验证旧密码。失败原因分开（防枚举）。
+    """
+    if not verify_password(body.current_password, user.password_hash):
+        log_action(
+            db,
+            user.username,
+            "CHANGE_PASSWORD",
+            "users",
+            user.user_id,
+            payload={"result": "fail", "reason": "wrong_current_password"},
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        db.commit()
+        raise _err(401, "当前密码错误", "ERR_UNAUTHORIZED")
+
+    if body.current_password == body.new_password:
+        raise _err(400, "新密码不能与当前密码相同", "ERR_BAD_REQUEST")
+
+    try:
+        user.password_hash = hash_password(body.new_password)
+    except ValueError as e:
+        raise _err(400, str(e), "ERR_BAD_REQUEST") from e
+    user.updated_at = datetime.now().isoformat()
+
+    log_action(
+        db,
+        user.username,
+        "CHANGE_PASSWORD",
+        "users",
+        user.user_id,
+        payload={"result": "success"},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/users", response_model=list[UserOut])

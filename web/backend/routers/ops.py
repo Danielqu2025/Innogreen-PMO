@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
-from deps import AdminUser, WriteUser, get_current_user
+from deps import AdminUser, WriteUser, escape_like, get_current_user
 from models import (
     PitfallGuide,
     ProjectProgress,
@@ -334,12 +334,12 @@ def list_projects(
     if building:
         query = query.where(ProjectProfile.building == building)
     if q:
-        like = f"%{q}%"
+        like = f"%{escape_like(q)}%"
         query = query.where(
-            (ProjectProfile.project_code.like(like))
-            | (ProjectProfile.company_name.like(like))
-            | (ProjectProfile.short_name.like(like))
-            | (ProjectProfile.full_name.like(like))
+            (ProjectProfile.project_code.like(like, escape="\\"))
+            | (ProjectProfile.company_name.like(like, escape="\\"))
+            | (ProjectProfile.short_name.like(like, escape="\\"))
+            | (ProjectProfile.full_name.like(like, escape="\\"))
         )
     # 先按进度刷新 current_stage_id，再按 stage_id 过滤（避免缓存过期漏筛/错筛）
     projects = ensure_current_stages(
@@ -661,13 +661,16 @@ def list_pitfalls(
 ) -> list[PitfallOut]:
     query = select(PitfallGuide)
     if stage:
-        query = query.where(PitfallGuide.stage_ref.like(f"%{stage}%"))
+        query = query.where(
+            PitfallGuide.stage_ref.like(f"%{escape_like(stage)}%", escape="\\")
+        )
     if impact:
         query = query.where(PitfallGuide.impact_level == impact)
     if q:
-        like = f"%{q}%"
+        like = f"%{escape_like(q)}%"
         query = query.where(
-            (PitfallGuide.wrong_action.like(like)) | (PitfallGuide.right_action.like(like))
+            (PitfallGuide.wrong_action.like(like, escape="\\"))
+            | (PitfallGuide.right_action.like(like, escape="\\"))
         )
     return [PitfallOut.model_validate(p) for p in db.execute(query).scalars().all()]
 
