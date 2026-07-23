@@ -1,4 +1,4 @@
-import { Layout, Menu, Typography, Button, Tag, Space, theme } from "antd";
+import { Layout, Menu, Typography, Button, Tag, Space, theme, Modal, Form, Input } from "antd";
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -10,11 +10,12 @@ import {
   SettingOutlined,
   ExportOutlined,
   ImportOutlined,
+  KeyOutlined,
 } from "@ant-design/icons";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import type { Role } from "../api/client";
+import { changePassword, type Role } from "../api/client";
 
 const { Header, Sider, Content } = Layout;
 
@@ -55,6 +56,11 @@ export default function AppLayout() {
     settingsOpen ? ["settings"] : [],
   );
 
+  // 「修改我的密码」弹窗
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm] = Form.useForm<{ current: string; next: string }>();
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+
   useEffect(() => {
     if (settingsOpen) {
       setOpenKeys((keys) =>
@@ -62,6 +68,25 @@ export default function AppLayout() {
       );
     }
   }, [settingsOpen]);
+
+  const onChangePassword = async () => {
+    try {
+      const v = await pwForm.validateFields();
+      setPwSubmitting(true);
+      await changePassword(v.current, v.next);
+      pwForm.resetFields();
+      setPwOpen(false);
+      Modal.success({ title: "密码已修改", content: "请妥善保管新密码。" });
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: { message?: string } } } };
+      Modal.error({
+        title: "修改失败",
+        content: err.response?.data?.detail?.message ?? "网络错误",
+      });
+    } finally {
+      setPwSubmitting(false);
+    }
+  };
 
   const items = [
     { key: "/ops", icon: <DashboardOutlined />, label: <Link to="/ops">项目看板</Link> },
@@ -134,6 +159,15 @@ export default function AppLayout() {
               <>
                 <Typography.Text>{user.display_name ?? user.username}</Typography.Text>
                 <Tag color={ROLE_TAG[user.role].color}>{ROLE_TAG[user.role].label}</Tag>
+                <Button
+                  icon={<KeyOutlined />}
+                  onClick={() => {
+                    pwForm.resetFields();
+                    setPwOpen(true);
+                  }}
+                >
+                  修改密码
+                </Button>
               </>
             )}
             <Button
@@ -160,6 +194,37 @@ export default function AppLayout() {
           </div>
         </Content>
       </Layout>
+
+      <Modal
+        title="修改我的密码"
+        open={pwOpen}
+        onCancel={() => setPwOpen(false)}
+        onOk={onChangePassword}
+        confirmLoading={pwSubmitting}
+        okText="确认修改"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={pwForm} layout="vertical" preserve={false}>
+          <Form.Item
+            name="current"
+            label="当前密码"
+            rules={[{ required: true, message: "请输入当前密码" }]}
+          >
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            name="next"
+            label="新密码"
+            rules={[
+              { required: true, message: "请输入新密码" },
+              { min: 8, message: "新密码至少 8 位" },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Layout>
   );
 }
