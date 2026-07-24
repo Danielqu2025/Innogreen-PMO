@@ -130,22 +130,42 @@ journalctl --user -u innogreen-pmo-app.service -n 200 --no-pager
 
 ### 数据库备份（与 dev 同源）
 
+手动备份（Online Backup API；成功后按 `--keep` 轮转，默认保留 14 份）：
+
 ```bash
-python3 scripts/backup_db.py --db-path data/innogreen_pmo.db
+cd /home/ubuntu/Innogreen-PMO
+.venv/bin/python scripts/backup_db.py --db-path data/innogreen_pmo.db --keep 14
 # 备份到 data/backups/innogreen_pmo_backup_<时间戳>.db
 ```
 
-建议加 systemd timer 每天定时：
+#### 启用 systemd 定时备份（每天 02:30）
+
+本目录已提供完整单元：`pmo-backup.service`（oneshot）+ `pmo-backup.timer`。
+
 ```bash
-# /home/ubuntu/.config/systemd/user/pmo-backup.timer
-[Unit]
-Description=Daily InnoGreen PMO DB backup
-[Timer]
-OnCalendar=*-*-* 02:30:00
-Persistent=true
-[Install]
-WantedBy=timers.target
+# 拷贝到 user systemd（路径与 innogreen-pmo-app.service 一致）
+mkdir -p ~/.config/systemd/user
+cp deploy/pmo-backup.service deploy/pmo-backup.timer ~/.config/systemd/user/
+
+systemctl --user daemon-reload
+systemctl --user enable --now pmo-backup.timer
+systemctl --user list-timers --all | grep pmo-backup   # 应看到下次触发时间
 ```
+
+验证：
+
+```bash
+# 立刻跑一次（不等到 02:30）
+systemctl --user start pmo-backup.service
+systemctl --user status pmo-backup.service
+journalctl --user -u pmo-backup.service -n 50 --no-pager
+
+# 确认最新备份 mtime 刚更新
+ls -lt data/backups/innogreen_pmo_backup_*.db | head -5
+```
+
+若仓库不在 `/home/ubuntu/Innogreen-PMO`，改 service 里的 `WorkingDirectory` / `ExecStart` 路径后再拷贝。
+无 systemd 时也可用 crontab（见 [web/README.md](../web/README.md)「生产部署 → 备份」）。
 
 ### 切到 dev / 改代码后重新部署前端
 

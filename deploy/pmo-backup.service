@@ -1,0 +1,15 @@
+[Unit]
+Description=Innogreen PMO database backup (oneshot)
+# 不依赖 app 服务：Online Backup API 可在库被占用时安全快照
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/Innogreen-PMO
+
+# 与 innogreen-pmo-app.service 同源路径；--keep 14 轮转 data/backups/
+ExecStart=/home/ubuntu/Innogreen-PMO/.venv/bin/python scripts/backup_db.py \
+    --db-path data/innogreen_pmo.db \
+    --keep 14
+
+# systemd --user 默认 ProtectHome=true，需读仓库与 .venv
+ProtectHome=false

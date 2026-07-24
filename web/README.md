@@ -20,8 +20,10 @@ pytest tests/ -v
 
 ```bash
 python scripts/backup_db.py
-python scripts/backup_db.py --db-path data/innogreen_pmo.db
+python scripts/backup_db.py --db-path data/innogreen_pmo.db --keep 14
 ```
+
+成功后按 `--keep`（默认 14）删除更旧的 `*_backup_*.db`。生产环境定时备份见下方「生产部署 → 备份」，以及 [deploy/README.md](../deploy/README.md)。
 
 ## 后端
 
@@ -117,9 +119,14 @@ server {
 
 ### 4. 备份（定时）
 
+优先用 systemd timer（完整单元见 `deploy/pmo-backup.service` + `deploy/pmo-backup.timer`，说明见 [deploy/README.md](../deploy/README.md)）。无 systemd 时可用 crontab：
+
 ```bash
-# crontab 每天 02:30 备份（Online Backup API，事务一致快照）
-30 2 * * * cd /opt/innogreen-pmo && python scripts/backup_db.py
+# crontab 每天 02:30 备份（Online Backup API + keep-N 轮转）
+30 2 * * * cd /opt/innogreen-pmo && python scripts/backup_db.py --keep 14
+
+# 验证：最新备份 mtime 应接近上次触发时间
+ls -lt /opt/innogreen-pmo/data/backups/innogreen_pmo_backup_*.db | head -3
 ```
 
 ### 安全要点

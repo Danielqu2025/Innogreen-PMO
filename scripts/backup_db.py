@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Backup SQLite database to data/backups/."""
+"""Backup SQLite database to data/backups/（支持 --keep N 轮转）。"""
 from __future__ import annotations
 
 import argparse
@@ -10,16 +10,20 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "data" / "innogreen_pmo.db"
+DEFAULT_KEEP = 14
+
+
+def _ensure_utf8_stdout() -> None:
+    """仅 CLI 入口调用；避免 import 时改写 sys.stdout 干扰 pytest。"""
+    if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 
 def backup_db(db_path: Path) -> Path:
     if not db_path.exists():
-        raise FileNotFoundError(f"Database not found: {db_path}")
+        raise FileNotFoundError(f"数据库不存在: {db_path}")
 
     backup_dir = db_path.parent / "backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
@@ -44,25 +48,62 @@ def backup_db(db_path: Path) -> Path:
     return backup_path
 
 
+def prune_old_backups(backup_dir: Path, stem: str, keep: int) -> list[Path]:
+    """保留最新 keep 个 `{stem}_backup_*.db`，按 mtime 降序；返回已删除路径。"""
+    if keep < 1:
+        raise ValueError(f"--keep 必须 ≥ 1，当前: {keep}")
+
+    pattern = f"{stem}_backup_*.db"
+    files = sorted(
+        backup_dir.glob(pattern),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    to_delete = files[keep:]
+    for path in to_delete:
+        path.unlink()
+    return to_delete
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Backup Innogreen PMO database")
+    _ensure_utf8_stdout()
+    parser = argparse.ArgumentParser(description="备份 Innogreen PMO 数据库")
     parser.add_argument(
         "--db-path",
         default=str(DEFAULT_DB),
-        help="Source database path",
+        help="源数据库路径",
+    )
+    parser.add_argument(
+        "--keep",
+        type=int,
+        default=DEFAULT_KEEP,
+        help=f"成功备份后保留的最新备份数（默认 {DEFAULT_KEEP}）",
     )
     args = parser.parse_args()
     db_path = Path(args.db_path)
     if not db_path.is_absolute():
         db_path = (ROOT / db_path).resolve()
 
+    if args.keep < 1:
+        print(f"错误: --keep 必须 ≥ 1，当前: {args.keep}")
+        sys.exit(2)
+
     try:
         out = backup_db(db_path)
     except FileNotFoundError as e:
-        print(f"ERROR: {e}")
+        print(f"错误: {e}")
         sys.exit(1)
 
-    print(f"Backup saved: {out}")
+    print(f"备份已保存: {out}")
+
+    backup_dir = out.parent
+    deleted = prune_old_backups(backup_dir, db_path.stem, args.keep)
+    remaining = len(list(backup_dir.glob(f"{db_path.stem}_backup_*.db")))
+    if deleted:
+        print(f"已清理旧备份 {len(deleted)} 个，当前保留 {remaining} 个（--keep {args.keep}）")
+    else:
+        print(f"无需清理，当前备份 {remaining} 个（--keep {args.keep}）")
+
     sys.exit(0)
 
 
