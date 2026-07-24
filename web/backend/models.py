@@ -93,6 +93,7 @@ class ProjectProfile(Base):
     project_status: Mapped[str] = mapped_column(Text, default="未开始")
     progress_percent: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     current_stage: Mapped[StageMap | None] = relationship()
     progress_rows: Mapped[list["ProjectProgress"]] = relationship(back_populates="project")

@@ -138,3 +138,41 @@ def test_admin_self_disable_guard(admin_client: TestClient):
     r = admin_client.patch(f"/api/auth/users/{my_id}", json={"is_active": False})
     assert r.status_code == 409
     assert "禁用" in r.json()["detail"]["message"] or "自己的" in r.json()["detail"]["message"]
+
+
+def test_deactivate_and_activate_project(admin_client: TestClient) -> None:
+    """测试项目软删除和恢复功能"""
+    # 创建测试项目
+    resp = admin_client.post(
+        "/api/ops/projects",
+        json={"project_code": "DEACT-TEST", "company_name": "Deactivate Test Co"},
+    )
+    assert resp.status_code == 201
+    project_id = resp.json()["project_id"]
+
+    # 验证项目在列表中
+    resp = admin_client.get("/api/ops/projects")
+    assert any(p["project_id"] == project_id for p in resp.json())
+
+    # 停用项目
+    resp = admin_client.post(f"/api/ops/projects/{project_id}/deactivate")
+    assert resp.status_code == 200
+
+    # 验证项目不在默认列表中
+    resp = admin_client.get("/api/ops/projects")
+    assert all(p["project_id"] != project_id for p in resp.json())
+
+    # 验证项目在包含已停用列表中
+    resp = admin_client.get("/api/ops/projects?include_inactive=true")
+    assert any(p["project_id"] == project_id for p in resp.json())
+
+    # 恢复项目
+    resp = admin_client.post(f"/api/ops/projects/{project_id}/activate")
+    assert resp.status_code == 200
+
+    # 验证项目回到默认列表
+    resp = admin_client.get("/api/ops/projects")
+    assert any(p["project_id"] == project_id for p in resp.json())
+
+    # 清理：停用测试项目
+    admin_client.post(f"/api/ops/projects/{project_id}/deactivate")

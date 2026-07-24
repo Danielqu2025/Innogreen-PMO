@@ -55,6 +55,23 @@ def ensure_progress_schedule_columns() -> None:
                 print(f"[migrate] project_progress.{col} 已添加")
 
 
+def ensure_project_is_active_column() -> None:
+    """旧库升级：为 project_profile 补 is_active 列。"""
+    from sqlalchemy import text
+
+    from database import engine
+
+    with engine.begin() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(project_profile)"))]
+        if "is_active" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE project_profile ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+            print("[migrate] project_profile.is_active 已添加")
+
+
 def ensure_bootstrap_admin() -> None:
     """冷启动建一号管理员：users 表为空且配置了 PMO_BOOTSTRAP_ADMIN_* 时插入一个 admin。"""
     from database import SessionLocal
@@ -126,6 +143,7 @@ async def lifespan(_app: FastAPI):
     ensure_task_is_active_column()
     ensure_progress_schedule_columns()
     ensure_audit_immutable_triggers()
+    ensure_project_is_active_column()
     ensure_bootstrap_admin()
     yield
 

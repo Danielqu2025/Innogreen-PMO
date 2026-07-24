@@ -15,6 +15,7 @@ from models import (
 )
 from rate_limit import get_real_ip, limiter
 from schemas import (
+    AuditLogOut,
     BlockerOut,
     CriticalPathOut,
     DashboardSummary,
@@ -377,12 +378,15 @@ def list_projects(
     stage_id: int | None = None,
     building: str | None = None,
     q: str | None = None,
+    include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> list[ProjectOut]:
     query = (
         select(ProjectProfile)
         .options(joinedload(ProjectProfile.current_stage))
     )
+    if not include_inactive:
+        query = query.where(ProjectProfile.is_active == 1)
     if status:
         query = query.where(ProjectProfile.project_status == status)
     if building:
@@ -476,6 +480,78 @@ def update_project_endpoint(
             400,
             detail={"error": True, "code": "ERR_BAD_REQUEST", "message": str(e)},
         ) from e
+
+
+@router.post("/projects/{project_id}/deactivate", response_model=ProjectOut)
+def deactivate_project(
+    project_id: int,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> ProjectOut:
+    """软删除项目（管理员专用）"""
+    p = db.get(ProjectProfile, project_id)
+    if not p:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
+        )
+    if p.is_active == 0:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": "项目已停用"},
+        )
+    p.is_active = 0
+    from services.audit import log_action
+    log_action(
+        db,
+        user.username,
+        "DELETE",
+        "projects",
+        project_id,
+        payload={"project_code": p.project_code, "company_name": p.company_name},
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    db.commit()
+    db.refresh(p)
+    return _project_out(p)
+
+
+@router.post("/projects/{project_id}/activate", response_model=ProjectOut)
+def activate_project(
+    project_id: int,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> ProjectOut:
+    """恢复已停用项目（管理员专用）"""
+    p = db.get(ProjectProfile, project_id)
+    if not p:
+        raise HTTPException(
+            404,
+            detail={"error": True, "code": "ERR_NOT_FOUND", "message": "企业不存在"},
+        )
+    if p.is_active == 1:
+        raise HTTPException(
+            400,
+            detail={"error": True, "code": "ERR_BAD_REQUEST", "message": "项目已是活跃状态"},
+        )
+    p.is_active = 1
+    from services.audit import log_action
+    log_action(
+        db,
+        user.username,
+        "RESTORE",
+        "projects",
+        project_id,
+        payload={"project_code": p.project_code, "company_name": p.company_name},
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    db.commit()
+    db.refresh(p)
+    return _project_out(p)
 
 
 @router.get("/projects/{project_id}/progress", response_model=list[ProgressOut])
@@ -990,6 +1066,31 @@ async def import_db(
         backup_path=f"backups/{backup_path.name}",
         message="已用上传的数据库替换当前库；先前库已自动备份。如页面异常请刷新或重新登录。",
     )
+
+
+@router.get("/audit-logs", response_model=list[AuditLogOut])
+def list_audit_logs(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    action: str | None = Query(None),
+    resource: str | None = Query(None),
+    actor: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[AuditLogOut]:
+    """查询审计日志（仅管理员可用）"""
+    from models import AuditLog as AuditLogModel
+
+    query = select(AuditLogModel)
+    if action:
+        query = query.where(AuditLogModel.action == action)
+    if resource:
+        query = query.where(AuditLogModel.resource == resource)
+    if actor:
+        query = query.where(AuditLogModel.actor == actor)
+
+    query = query.order_by(AuditLogModel.created_at.desc()).offset(offset).limit(limit)
+    logs = db.execute(query).scalars().all()
+    return [AuditLogOut.model_validate(log) for log in logs]
 
 
 tenant_router = APIRouter(prefix="/api/tenant")

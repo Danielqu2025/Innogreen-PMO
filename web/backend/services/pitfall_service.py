@@ -30,9 +30,13 @@ def create_pitfall(
     if body.ref_type not in VALID_REF_TYPES:
         raise ValueError(f"无效关联类型: {body.ref_type}")
 
-    stage = db.execute(
-        select(StageMap).where(StageMap.stage_name == stage_ref)
-    ).scalar_one_or_none()
+    # 支持 stage_ref 为整数 (stage_id) 或字符串 (stage_name)
+    if stage_ref.isdigit():
+        stage = db.get(StageMap, int(stage_ref))
+    else:
+        stage = db.execute(
+            select(StageMap).where(StageMap.stage_name == stage_ref)
+        ).scalar_one_or_none()
     if not stage:
         raise ValueError(f"阶段不存在: {stage_ref}")
 
