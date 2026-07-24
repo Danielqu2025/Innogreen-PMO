@@ -151,3 +151,143 @@ def replace_live_db(db_path: Path, file_bytes: bytes) -> Path:
     staging.replace(db_path)
     dispose_engine()
     return backup_path
+
+
+def migrate_db_data(source_bytes: bytes, db_path: Path) -> dict:
+    """智能迁移：提取源数据库数据，写入目标数据库（处理 schema 差异）。
+
+    策略：
+    1. 将源数据库数据迁移到目标数据库（而非直接替换）
+    2. 检测并补充缺失列
+    3. 按 key columns upsert 数据
+    4. 返回迁移统计
+    """
+    import sqlite3
+    import tempfile
+    from config import get_settings
+
+    # 写入前先备份
+    backup_path = backup_live_db(db_path)
+
+    # 在临时文件中读取源数据库
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+        tmp.write(source_bytes)
+
+    try:
+        source_conn = sqlite3.connect(str(tmp_path))
+        target_conn = sqlite3.connect(str(db_path))
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+    try:
+        # 获取源数据库的表和列
+        source_cursor = source_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        source_tables = {row[0] for row in source_cursor.fetchall()}
+
+        target_cursor = target_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        target_tables = {row[0] for row in target_cursor.fetchall()}
+
+        # 需要迁移的表及其关键列
+        tables_to_migrate = [
+            ("project_profile", ["project_id", "project_code"]),
+            ("project_progress", ["progress_id", "project_id", "task_id"]),
+            ("progress_journal", ["journal_id", "project_id", "task_id"]),
+        ]
+
+        stats = {
+            "tables_migrated": 0,
+            "rows_migrated": 0,
+            "rows_updated": 0,
+            "rows_skipped": 0,
+            "backup_path": str(backup_path),
+        }
+
+        target_conn.execute("BEGIN TRANSACTION")
+
+        for table_name, key_cols in tables_to_migrate:
+            if table_name not in source_tables:
+                continue  # 源库没有这个表，跳过
+
+            # 获取公共列
+            source_cols = {
+                row[1]: row[2]
+                for row in source_conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            }
+            target_cols = {
+                row[1]: row[2]
+                for row in target_conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            }
+
+            common_cols = [c for c in source_cols if c in target_cols]
+            key_cols_in_common = [c for c in key_cols if c in common_cols]
+
+            if not common_cols or not key_cols_in_common:
+                continue
+
+            # 补充目标库缺失的列
+            for col, col_type in source_cols.items():
+                if col not in target_cols:
+                    try:
+                        # 为 TEXT 类型列添加默认 NULL
+                        if "TEXT" in col_type.upper():
+                            target_conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} TEXT")
+                        elif "INTEGER" in col_type.upper():
+                            target_conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} INTEGER")
+                        elif "REAL" in col_type.upper():
+                            target_conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} REAL")
+                        else:
+                            target_conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col}")
+                    except sqlite3.OperationalError:
+                        pass  # 列可能已存在
+
+            # 迁移数据
+            cols_str = ", ".join(common_cols)
+            placeholders = ", ".join(["?" for _ in common_cols])
+
+            for row in source_conn.execute(f"SELECT {cols_str} FROM {table_name}").fetchall():
+                row_dict = dict(zip(common_cols, row))
+                key_values = tuple(row_dict.get(c) for c in key_cols_in_common)
+
+                # 检查是否已存在
+                where = " AND ".join([f"{c} = ?" for c in key_cols_in_common])
+                check = target_conn.execute(
+                    f"SELECT 1 FROM {table_name} WHERE {where}", key_values
+                ).fetchone()
+
+                if check:
+                    # 更新
+                    set_clause = ", ".join([f"{c} = ?" for c in common_cols if c not in key_cols_in_common])
+                    if set_clause:
+                        update_sql = f"UPDATE {table_name} SET {set_clause} WHERE {where}"
+                        update_values = [row_dict.get(c) for c in common_cols if c not in key_cols_in_common] + list(key_values)
+                        target_conn.execute(update_sql, update_values)
+                        stats["rows_updated"] += 1
+                    else:
+                        stats["rows_skipped"] += 1
+                else:
+                    # 插入
+                    try:
+                        target_conn.execute(
+                            f"INSERT INTO {table_name} ({cols_str}) VALUES ({placeholders})",
+                            row,
+                        )
+                        stats["rows_migrated"] += 1
+                    except sqlite3.IntegrityError:
+                        stats["rows_skipped"] += 1
+
+            stats["tables_migrated"] += 1
+
+        target_conn.commit()
+        return stats
+
+    finally:
+        source_conn.close()
+        target_conn.close()
+        tmp_path.unlink(missing_ok=True)
+        dispose_engine()

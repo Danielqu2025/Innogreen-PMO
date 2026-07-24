@@ -999,11 +999,19 @@ async def import_db(
         False,
         description="必须为 true：确认将用上传的 .db 全量替换当前库",
     ),
+    migrate: bool = Query(
+        False,
+        description="智能迁移模式：提取数据而非替换文件（推荐开启）",
+    ),
 ) -> DbImportResultOut:
-    """用上传的 SQLite .db 全量替换当前库。危险操作：仅管理员。"""
+    """导入 SQLite 数据库。
+
+    - migrate=False（默认）：直接替换数据库文件（危险）
+    - migrate=True（推荐）：智能迁移数据，处理 schema 差异
+    """
     from config import get_settings
     from services.audit import log_action
-    from services.db_transfer import replace_live_db
+    from services.db_transfer import migrate_db_data, replace_live_db, dispose_engine
 
     if not confirm:
         raise HTTPException(
@@ -1033,39 +1041,68 @@ async def import_db(
             detail={"error": True, "code": "ERR_BAD_REQUEST", "message": "文件为空"},
         )
 
-    # 先写审计（替换前），再关 Session 并换文件
-    log_action(
-        db,
-        user.username,
-        "IMPORT",
-        "database",
-        None,
-        payload={"bytes": len(raw), "filename": file.filename},
-        ip_address=_client_ip(request),
-        user_agent=_user_agent(request),
-    )
-    db.commit()
-    db.close()
+    if migrate:
+        # 智能迁移模式：提取数据写入目标数据库
+        log_action(
+            db,
+            user.username,
+            "MIGRATE",
+            "database",
+            None,
+            payload={"bytes": len(raw), "filename": file.filename, "mode": "smart_migrate"},
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+        db.commit()
+        db.close()
+        dispose_engine()
 
-    try:
-        backup_path = replace_live_db(get_settings().db_path, raw)
-    except ValueError as e:
-        raise HTTPException(
-            400,
-            detail={"error": True, "code": "ERR_IMPORT", "message": str(e)},
-        ) from e
-    except FileNotFoundError as e:
-        raise HTTPException(
-            404,
-            detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
-        ) from e
+        try:
+            stats = migrate_db_data(raw, get_settings().db_path)
+        except Exception as e:
+            raise HTTPException(
+                400,
+                detail={"error": True, "code": "ERR_MIGRATE", "message": f"迁移失败: {e}"},
+            ) from e
 
-    # 不返回绝对路径（信息泄露）；仅相对 backups/ 下的文件名
-    return DbImportResultOut(
-        ok=True,
-        backup_path=f"backups/{backup_path.name}",
-        message="已用上传的数据库替换当前库；先前库已自动备份。如页面异常请刷新或重新登录。",
-    )
+        return DbImportResultOut(
+            ok=True,
+            backup_path=stats["backup_path"],
+            message=f"智能迁移完成：迁移 {stats['rows_migrated']} 条，更新 {stats['rows_updated']} 条，跳过 {stats['rows_skipped']} 条。先前库已自动备份。",
+        )
+    else:
+        # 传统模式：直接替换文件
+        log_action(
+            db,
+            user.username,
+            "IMPORT",
+            "database",
+            None,
+            payload={"bytes": len(raw), "filename": file.filename, "mode": "replace"},
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+        db.commit()
+        db.close()
+
+        try:
+            backup_path = replace_live_db(get_settings().db_path, raw)
+        except ValueError as e:
+            raise HTTPException(
+                400,
+                detail={"error": True, "code": "ERR_IMPORT", "message": str(e)},
+            ) from e
+        except FileNotFoundError as e:
+            raise HTTPException(
+                404,
+                detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
+            ) from e
+
+        return DbImportResultOut(
+            ok=True,
+            backup_path=f"backups/{backup_path.name}",
+            message="已用上传的数据库替换当前库；先前库已自动备份。如页面异常请刷新或重新登录。",
+        )
 
 
 @router.get("/audit-logs", response_model=list[AuditLogOut])

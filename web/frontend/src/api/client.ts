@@ -486,11 +486,11 @@ export type DbImportResult = {
   message: string;
 };
 
-export async function importDb(file: File): Promise<DbImportResult> {
+export async function importDb(file: File, smartMigrate = true): Promise<DbImportResult> {
   const form = new FormData();
   form.append("file", file);
   const r = await api.post<DbImportResult>("/api/ops/import/db", form, {
-    params: { confirm: true },
+    params: { confirm: true, migrate: smartMigrate },
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 120000,
   });

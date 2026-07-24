@@ -94,29 +94,36 @@ export default function DataImportPage() {
       return;
     }
     Modal.confirm({
-      title: "确认全量替换数据库？",
+      title: "确认迁移数据库？",
       icon: <WarningOutlined />,
       content: (
         <div>
           <p>
-            上传的 SQLite 将<strong>完全替换</strong>当前库中的全部数据（企业、进度、用户等）。
+            系统将使用<strong>智能迁移模式</strong>从上传的数据库中提取数据。
           </p>
-          <p>系统会先自动备份当前库到 data/backups/，然后替换。</p>
+          <p>
+            <strong>自动处理：</strong>
+          </p>
+          <ul style={{ margin: "8px 0", paddingLeft: 16 }}>
+            <li>检测并补充缺失的列</li>
+            <li>智能 upsert（已有记录更新，新记录插入）</li>
+            <li>自动备份当前数据库</li>
+          </ul>
           <p style={{ marginBottom: 0 }}>
-            此操作不可撤销（仅能从备份恢复）。完成后可能需要刷新页面或重新登录。
+            完成后请刷新页面或重新登录。
           </p>
         </div>
       ),
-      okText: "确认替换",
-      okType: "danger",
+      okText: "确认迁移",
+      okType: "primary",
       cancelText: "取消",
       onOk: async () => {
         setDbLoading(true);
         setDbResult(null);
         try {
-          const result = await importDb(dbFile);
+          const result = await importDb(dbFile, true);
           setDbResult(result);
-          message.success("数据库已替换");
+          message.success("数据迁移完成");
         } catch (e) {
           message.error(errMsg(e));
         } finally {
@@ -240,17 +247,18 @@ export default function DataImportPage() {
           <Divider style={{ margin: "8px 0" }} />
 
           <Typography.Title level={5} style={{ margin: 0 }}>
-            SQLite 全量导入（.db）
+            SQLite 数据迁移（.db）
           </Typography.Title>
           <Alert
-            type="error"
+            type="info"
             showIcon
-            message="危险操作：将替换当前全部数据（仅管理员）"
+            message="智能迁移（推荐）：提取数据，处理 schema 差异"
             description={
               <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-                <li>上传的 .db 会完全覆盖当前库（含用户与进度）</li>
-                <li>替换前会自动备份到 data/backups/</li>
-                <li>完成后请刷新页面；若会话失效请重新登录</li>
+                <li>自动检测并补充缺失的列（如 is_active）</li>
+                <li>智能 upsert：已有记录更新，新记录插入</li>
+                <li>自动备份当前数据库到 data/backups/</li>
+                <li>不替换文件，保留当前数据库结构</li>
               </ul>
             }
           />
