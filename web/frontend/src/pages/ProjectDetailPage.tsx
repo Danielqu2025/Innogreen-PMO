@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Descriptions,
+  Modal,
   Select,
   Space,
   Steps,
@@ -10,11 +11,14 @@ import {
   Tag,
   Timeline,
   Typography,
+  message,
   theme,
 } from "antd";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   api,
+  deactivateProject,
+  activateProject,
   listProjectJournal,
   listStages,
   type CriticalPath,
@@ -174,8 +178,9 @@ function criticalPathTimeLabel(n: {
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
-  const { canWrite } = useAuth();
+  const { canWrite, user } = useAuth();
   const { token } = theme.useToken();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -183,6 +188,32 @@ export default function ProjectDetailPage() {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const isAdmin = user?.role === "admin";
+
+  const handleDeactivate = async () => {
+    if (!id) return;
+    try {
+      await deactivateProject(Number(id));
+      message.success("项目已停用");
+      navigate("/ops/projects");
+    } catch {
+      message.error("停用失败");
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!id) return;
+    try {
+      await activateProject(Number(id));
+      message.success("项目已恢复");
+      // 刷新当前页
+      window.location.reload();
+    } catch {
+      message.error("恢复失败");
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -314,6 +345,25 @@ export default function ProjectDetailPage() {
             <Link to={`/ops/projects/${id}/edit`}>
               <Button size="small">编辑</Button>
             </Link>
+          )}
+          {isAdmin && (
+            project.is_active !== 0 ? (
+              <Button
+                size="small"
+                danger
+                onClick={() => setDeleteModalOpen(true)}
+              >
+                停用
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                type="primary"
+                onClick={handleActivate}
+              >
+                恢复
+              </Button>
+            )
           )}
         </Space>
         <Link to="/ops/projects">
@@ -493,6 +543,21 @@ export default function ProjectDetailPage() {
           }))}
         />
       )}
+      <Modal
+        title="确认停用"
+        open={deleteModalOpen}
+        onOk={handleDeactivate}
+        onCancel={() => setDeleteModalOpen(false)}
+        okText="确认停用"
+        okButtonProps={{ danger: true }}
+      >
+        <p>
+          确定要停用项目 <strong>{project.project_code}</strong> 吗？
+        </p>
+        <p style={{ color: "#888" }}>
+          停用后该项目将从默认列表中隐藏，但仍可通过筛选恢复。
+        </p>
+      </Modal>
     </div>
   );
 }

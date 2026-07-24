@@ -78,6 +78,7 @@ class ProjectOut(BaseModel):
     project_status: str
     progress_percent: int
     notes: str | None = None
+    is_active: int = 1
 
 
 class ProgressOut(BaseModel):

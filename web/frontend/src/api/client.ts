@@ -129,7 +129,18 @@ export type Project = {
   project_status: string;
   progress_percent: number;
   notes: string | null;
+  is_active?: number;
 };
+
+export async function deactivateProject(id: number): Promise<Project> {
+  const r = await api.post<Project>(`/api/ops/projects/${id}/deactivate`);
+  return r.data;
+}
+
+export async function activateProject(id: number): Promise<Project> {
+  const r = await api.post<Project>(`/api/ops/projects/${id}/activate`);
+  return r.data;
+}
 
 export type Stage = {
   stage_id: number;

@@ -144,8 +144,21 @@ async def lifespan(_app: FastAPI):
     ensure_progress_schedule_columns()
     ensure_audit_immutable_triggers()
     ensure_project_is_active_column()
+    ensure_project_full_name_column()
     ensure_bootstrap_admin()
     yield
+
+
+def ensure_project_full_name_column() -> None:
+    """旧库升级：为 project_profile 补 full_name 列。"""
+    from sqlalchemy import text
+    from database import engine
+
+    with engine.begin() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(project_profile)"))]
+        if "full_name" not in cols:
+            conn.execute(text("ALTER TABLE project_profile ADD COLUMN full_name TEXT"))
+            print("[migrate] project_profile.full_name 已添加")
 
 
 _docs_on = settings.pmo_enable_docs
