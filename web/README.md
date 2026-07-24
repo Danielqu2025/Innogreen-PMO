@@ -125,5 +125,6 @@ server {
 ### 安全要点
 
 - **后端必须只绑 `127.0.0.1`**：`PMO_SESSION_SECRET` 一旦泄漏，攻击者可伪造任意会话。应用对外暴露 = 攻击者拿到密钥后直接以 admin 身份操作。
-- 上线前确认 `PMO_SESSION_SECRET` 已设、`PMO_ENABLE_DOCS=false`。
+- 上线前确认：强随机 `PMO_SESSION_SECRET`（`secrets.token_hex(32)`）、`PMO_ENABLE_DOCS=false`、`PMO_HTTPS_ONLY=true`（HTTPS 反代后）。
+- `PMO_CORS_ORIGINS` 设为真实前端源（勿用 `*`）；仅在可信反向代理后设 `PMO_TRUST_PROXY_HEADER=true`（否则客户端可伪造 XFF 绕过 IP 限速）。
 - `dist/` 要打进部署目录或镜像，不要用 compose 挂宿主机 `dist`（否则忘了 rebuild 就是旧前端）。

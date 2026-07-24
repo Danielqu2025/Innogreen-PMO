@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from deps import ROLES, AdminUser, CurrentUser
 from models import AuditLog, User
-from rate_limit import limiter
+from rate_limit import get_real_ip, limiter
 from schemas import (
     AuditLogOut,
     ChangePasswordIn,
@@ -66,6 +66,10 @@ def _user_snapshot(u: User) -> dict:
     }
 
 
+def _client_ip(request: Request) -> str | None:
+    return get_real_ip(request)
+
+
 @router.post("/login", response_model=UserOut)
 @limiter.limit("10/minute")  # 防登录爆破；登录失败统一 401 防枚举，再加 IP 限速兜底
 def login(
@@ -74,7 +78,7 @@ def login(
     body: LoginIn,
     db: Session = Depends(get_db),
 ) -> UserOut:
-    ip = request.client.host if request.client else None
+    ip = _client_ip(request)
     ua = request.headers.get("user-agent")
     user = db.execute(
         select(User).where(User.username == body.username)
@@ -141,7 +145,7 @@ def change_password(
             "users",
             user.user_id,
             payload={"result": "fail", "reason": "wrong_current_password"},
-            ip_address=request.client.host if request.client else None,
+            ip_address=_client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
         db.commit()
@@ -163,7 +167,7 @@ def change_password(
         "users",
         user.user_id,
         payload={"result": "success"},
-        ip_address=request.client.host if request.client else None,
+        ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
     db.commit()
@@ -222,7 +226,7 @@ def create_user(
         admin.username,
         user.user_id,
         {"username": username, "display_name": display_name, "role": body.role},
-        ip_address=request.client.host if request.client else None,
+        ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
     db.commit()
@@ -300,7 +304,7 @@ def update_user(
         user_id,
         before,
         after,
-        ip_address=request.client.host if request.client else None,
+        ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
     db.commit()

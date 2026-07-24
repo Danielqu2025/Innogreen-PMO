@@ -112,14 +112,13 @@ def test_import_db_rate_limit(admin_client: TestClient):
 
 
 def test_docs_disabled_by_default(client: TestClient):
-    """pmo_enable_docs 默认 false → /docs、/redoc 应返回 404。"""
+    """pmo_enable_docs 默认 false → /docs、/redoc、/openapi.json 均 404。"""
     r = client.get("/docs")
     assert r.status_code == 404
     r = client.get("/redoc")
     assert r.status_code == 404
     r = client.get("/openapi.json")
-    # OpenAPI schema 仍可取（FastAPI 默认开 openapi_url）；只是文档 UI 不可访问。
-    assert r.status_code == 200
+    assert r.status_code == 404
 
 
 def test_session_secret_length_validator():

@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from security import is_weak_password
 
 
 class StageOut(BaseModel):
@@ -342,19 +344,40 @@ class UserCreate(BaseModel):
     display_name: str | None = None
     role: str = "operator"
 
+    @field_validator("password")
+    @classmethod
+    def _reject_weak_password(cls, v: str) -> str:
+        if is_weak_password(v):
+            raise ValueError("密码过弱，请更换")
+        return v
+
 
 class UserUpdate(BaseModel):
     """管理员编辑用户 - Phase C（全可选）"""
     display_name: str | None = None
     role: str | None = None
     is_active: bool | None = None
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def _reject_weak_password(cls, v: str | None) -> str | None:
+        if v is not None and is_weak_password(v):
+            raise ValueError("密码过弱，请更换")
+        return v
 
 
 class ChangePasswordIn(BaseModel):
     """用户自助改密（Phase C+）：要求传旧密码验证身份。"""
     current_password: str
     new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def _reject_weak_password(cls, v: str) -> str:
+        if is_weak_password(v):
+            raise ValueError("密码过弱，请更换")
+        return v
 
 
 class AuditLogOut(BaseModel):

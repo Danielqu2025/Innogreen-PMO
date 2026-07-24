@@ -43,6 +43,8 @@ dist/
 *.bak
 *.log
 Proxxima.md
+**/cookies.txt
+cookies.txt
 
 # Local private mappings (real company names — never commit)
 data/private/**

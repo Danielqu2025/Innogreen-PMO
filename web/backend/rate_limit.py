@@ -6,8 +6,8 @@ key_func 选择：部署模式多样（本地 dev / nginx / Cloudflare Tunnel）
 - nginx HTTPS 反代: 通常 X-Forwarded-For 第一个
 
 优先级：CF-Connecting-IP > X-Forwarded-For[0] > 直连 IP。
-环境变量 PMO_TRUST_PROXY_HEADER=true 时启用代理头解析；本地 dev 默认信任
-X-Forwarded-For 便于 Vite proxy 调试（与 sh_eia 一致默认信任）。
+环境变量 PMO_TRUST_PROXY_HEADER=true 时启用代理头解析；默认 false
+（仅在可信反向代理后开启，防客户端伪造 XFF 绕过限速）。
 
 端点级限制（写于各 router 装饰器）：
 - POST /api/auth/login        10/minute（防爆破）
@@ -28,12 +28,19 @@ from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 
 
 def _trust_proxy() -> bool:
-    return os.getenv("PMO_TRUST_PROXY_HEADER", "true").lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    # 与 config.Settings.pmo_trust_proxy_header 默认 false 对齐；
+    # 优先读 Settings（已解析 .env），回退到环境变量。
+    try:
+        from config import get_settings
+
+        return bool(get_settings().pmo_trust_proxy_header)
+    except Exception:
+        return os.getenv("PMO_TRUST_PROXY_HEADER", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
 
 
 def get_real_ip(request: Request) -> str:

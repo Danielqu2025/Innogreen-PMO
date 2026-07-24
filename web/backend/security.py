@@ -7,6 +7,25 @@ import bcrypt
 _MAX_PASSWORD_BYTES = 72
 _ROUNDS = 12
 
+# 与 bootstrap / UserCreate 共用：拒绝明显弱口令与 .env.example 示例值
+WEAK_PASSWORDS = frozenset(
+    {
+        "change-me-now",
+        "change-me",
+        "password",
+        "admin",
+        "admin123",
+        "12345678",
+        "password123",
+    }
+)
+
+
+def is_weak_password(password: str) -> bool:
+    """明显弱口令或 change-me* 示例前缀 → True（大小写不敏感）。"""
+    p = password.lower()
+    return p in WEAK_PASSWORDS or p.startswith("change-me")
+
 
 def hash_password(password: str) -> str:
     pw = password.encode("utf-8")

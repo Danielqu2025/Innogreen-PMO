@@ -32,9 +32,10 @@ class Settings(BaseSettings):
     pmo_cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     # 会话 cookie 是否仅 HTTPS（生产 HTTPS 反代后设 true）
     pmo_https_only: bool = False
-    # 是否信任代理头解析真实 IP（X-Forwarded-For / CF-Connecting-IP）。默认 true：
-    # 反代与 Tunnel 场景需要；纯本地 dev 也无害（无代理头就走直连）。
-    pmo_trust_proxy_header: bool = True
+    # 是否信任代理头解析真实 IP（X-Forwarded-For / CF-Connecting-IP）。
+    # 默认 false：直接对外时客户端可伪造 XFF 绕过 IP 限速。
+    # 仅在可信反向代理（nginx / Cloudflare Tunnel）后设 true。
+    pmo_trust_proxy_header: bool = False
 
     @field_validator("pmo_session_secret")
     @classmethod

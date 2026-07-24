@@ -17,10 +17,44 @@ def test_operator_can_export_excel(operator_client):
     assert "spreadsheetml" in r.headers.get("content-type", "")
 
 
-def test_operator_can_export_db(operator_client):
+def test_operator_cannot_export_db(operator_client):
+    """整库 .db 导出仅管理员；操作员应 403。"""
     r = operator_client.get("/api/ops/export/db")
-    assert r.status_code == 200, r.text
-    assert r.content.startswith(b"SQLite format 3\x00")
+    assert r.status_code == 403
+
+
+def test_import_excel_rejects_oversized(operator_client, monkeypatch):
+    """Excel 上传超限 → 413。"""
+    import routers.ops as ops_mod
+
+    monkeypatch.setattr(ops_mod, "MAX_EXCEL_UPLOAD_BYTES", 64)
+    r = operator_client.post(
+        "/api/ops/import/excel",
+        files={
+            "file": (
+                "big.xlsx",
+                b"x" * 200,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        params={"dry_run": True},
+    )
+    assert r.status_code == 413, r.text
+    assert r.json()["detail"]["code"] == "ERR_PAYLOAD_TOO_LARGE"
+
+
+def test_import_db_rejects_oversized(admin_client, monkeypatch):
+    """DB 上传超限 → 413。"""
+    import routers.ops as ops_mod
+
+    monkeypatch.setattr(ops_mod, "MAX_DB_UPLOAD_BYTES", 64)
+    r = admin_client.post(
+        "/api/ops/import/db",
+        files={"file": ("big.db", b"x" * 200, "application/x-sqlite3")},
+        params={"confirm": True},
+    )
+    assert r.status_code == 413, r.text
+    assert r.json()["detail"]["code"] == "ERR_PAYLOAD_TOO_LARGE"
 
 
 def test_operator_can_import_excel_dry_run(operator_client):
@@ -172,8 +206,12 @@ def test_admin_import_db_roundtrip(admin_client):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["ok"] is True
-    assert body["backup_path"]
-    assert "backup" in body["backup_path"].replace("\\", "/").lower()
+    # 仅相对路径（backups/文件名），不暴露绝对路径
+    bp = body["backup_path"].replace("\\", "/")
+    assert bp.startswith("backups/")
+    assert ":" not in bp  # 无盘符
+    assert ".." not in bp
+    assert bp.count("/") == 1
 
     # 替换后连接池应能重新打开；重新登录因用户表仍在
     health = admin_client.get("/health")

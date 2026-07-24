@@ -27,6 +27,8 @@ os.environ["PMO_SESSION_SECRET"] = TEST_SESSION_SECRET
 os.environ["PMO_BOOTSTRAP_ADMIN_USERNAME"] = ""
 os.environ["PMO_BOOTSTRAP_ADMIN_PASSWORD"] = ""
 os.environ["PMO_CORS_ORIGINS"] = "http://127.0.0.1:5173"
+# 测试环境强制关文档，避免本地 web/.env 的 PMO_ENABLE_DOCS=true 污染断言
+os.environ["PMO_ENABLE_DOCS"] = "false"
 
 sys.path.insert(0, str(BACKEND))
 

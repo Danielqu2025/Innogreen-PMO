@@ -57,7 +57,7 @@ def ensure_bootstrap_admin() -> None:
     """冷启动建一号管理员：users 表为空且配置了 PMO_BOOTSTRAP_ADMIN_* 时插入一个 admin。"""
     from database import SessionLocal
     from models import User
-    from security import hash_password
+    from security import hash_password, is_weak_password
 
     with SessionLocal() as db:
         count = db.scalar(select(func.count()).select_from(User)) or 0
@@ -69,6 +69,13 @@ def ensure_bootstrap_admin() -> None:
             print(
                 "[bootstrap] WARNING: users 表为空且未配置 PMO_BOOTSTRAP_ADMIN_USERNAME/PASSWORD，"
                 "将无人能登录。请在 web/.env 配置后重启。"
+            )
+            return
+        # 拒绝示例/弱密码：避免冷启动后立刻被猜中（与 schemas / security 共用黑名单）
+        if len(password) < 8 or is_weak_password(password):
+            print(
+                "[bootstrap] ERROR: PMO_BOOTSTRAP_ADMIN_PASSWORD 过弱或仍是示例值，"
+                "已拒绝创建管理员。请换成 ≥8 位的强密码后重启。"
             )
             return
         db.add(
@@ -121,11 +128,13 @@ async def lifespan(_app: FastAPI):
     yield
 
 
+_docs_on = settings.pmo_enable_docs
 app = FastAPI(
     title="Innogreen PMO API",
     version="1.3.0-phase-c3",
-    docs_url="/docs" if settings.pmo_enable_docs else None,
-    redoc_url="/redoc" if settings.pmo_enable_docs else None,
+    docs_url="/docs" if _docs_on else None,
+    redoc_url="/redoc" if _docs_on else None,
+    openapi_url="/openapi.json" if _docs_on else None,
     lifespan=lifespan,
 )
 
@@ -159,11 +168,8 @@ app.include_router(tenant_router)
 
 @app.get("/health")
 def health() -> dict:
-    db_path = Path(settings.pmo_db_path)
-    if not db_path.is_absolute():
-        db_path = (Path(__file__).resolve().parents[1] / settings.pmo_db_path).resolve()
+    # 不对外暴露绝对路径（信息泄露）；仅报告库文件是否存在。
     return {
         "status": "ok",
-        "db_exists": db_path.exists(),
-        "db_path": str(db_path),
+        "db_exists": settings.db_path.exists(),
     }

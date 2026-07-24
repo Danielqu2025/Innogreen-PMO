@@ -93,19 +93,23 @@ export default function DataExportPage() {
         下载 Excel
       </Button>
 
-      <Alert
-        type="info"
-        showIcon
-        message="导出为 SQLite 数据库（.db）"
-        description="使用 Online Backup 生成事务一致快照，适合整库备份或迁移。导入侧可全量替换当前库（仅管理员）。"
-      />
-      <Button
-        icon={<DatabaseOutlined />}
-        loading={dbLoading}
-        onClick={onDownloadDb}
-      >
-        下载 SQLite（.db）
-      </Button>
+      {me?.role === "admin" && (
+        <>
+          <Alert
+            type="info"
+            showIcon
+            message="导出为 SQLite 数据库（.db）"
+            description="使用 Online Backup 生成事务一致快照，适合整库备份或迁移。导入侧可全量替换当前库（仅管理员）。"
+          />
+          <Button
+            icon={<DatabaseOutlined />}
+            loading={dbLoading}
+            onClick={onDownloadDb}
+          >
+            下载 SQLite（.db）
+          </Button>
+        </>
+      )}
     </Space>
   );
 }

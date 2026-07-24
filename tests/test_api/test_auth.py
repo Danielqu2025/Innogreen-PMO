@@ -39,7 +39,8 @@ def test_login_nonexistent_returns_401(client: TestClient):
 def test_login_inactive_user_returns_401(admin_client: TestClient, app):
     """Disabled user login → 401 (same generic message as wrong password)."""
     users = admin_client.get("/api/auth/users").json()
-    vid = next(u["user_id"] for u in users if u["role"] == "viewer")
+    # 按用户名定位，避免先前测试留下的其它 viewer 被误禁用
+    vid = next(u["user_id"] for u in users if u["username"] == VIEWER_USER)
     admin_client.patch(f"/api/auth/users/{vid}", json={"is_active": False})
 
     # Use a fresh client so there is no pre-existing session
@@ -106,6 +107,26 @@ def test_viewer_cannot_create_user(viewer_client: TestClient):
 def test_viewer_cannot_update_user(viewer_client: TestClient):
     r = viewer_client.patch("/api/auth/users/1", json={"is_active": False})
     assert r.status_code == 403
+
+
+def test_user_update_password_too_short(admin_client: TestClient):
+    """UserUpdate.password 须 ≥8，过短 → 422。"""
+    users = admin_client.get("/api/auth/users").json()
+    vid = next(u["user_id"] for u in users if u["role"] == "viewer")
+    r = admin_client.patch(
+        f"/api/auth/users/{vid}",
+        json={"password": "short"},
+    )
+    assert r.status_code == 422
+
+
+def test_user_create_rejects_weak_password(admin_client: TestClient):
+    """明显弱口令（与 bootstrap 黑名单一致）→ 422。"""
+    r = admin_client.post(
+        "/api/auth/users",
+        json={"username": "weak_pw_user", "password": "12345678", "role": "viewer"},
+    )
+    assert r.status_code == 422
 
 
 def test_login_writes_audit(admin_client: TestClient, app):

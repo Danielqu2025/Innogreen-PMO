@@ -385,7 +385,7 @@ export type CriticalPath = {
   edges: Array<{ from_task_id: number; to_task_id: number }>;
 };
 
-// ============ 数据导入/导出（管理员 + 操作员；DB 导入仅管理员） ============
+// ============ 数据导入/导出（Excel：管理员+操作员；DB 导出/导入：仅管理员） ============
 export type ExportSheetKey =
   | "stages"
   | "tasks"

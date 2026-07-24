@@ -13,7 +13,7 @@ from models import (
     TaskDependency,
     TaskDetail,
 )
-from rate_limit import limiter
+from rate_limit import get_real_ip, limiter
 from schemas import (
     BlockerOut,
     CriticalPathOut,
@@ -56,13 +56,67 @@ from services import task_service
 
 router = APIRouter(prefix="/api/ops", dependencies=[Depends(get_current_user)])
 
+# 上传体积上限（拒绝过大 body，防内存撑爆）
+MAX_EXCEL_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MiB
+MAX_DB_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MiB
+_READ_CHUNK = 1024 * 1024  # 1 MiB
+
 
 def _client_ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
+    return get_real_ip(request)
 
 
 def _user_agent(request: Request) -> str | None:
     return request.headers.get("user-agent")
+
+
+async def _read_upload_limited(
+    request: Request,
+    file: UploadFile,
+    max_bytes: int,
+    *,
+    kind: str,
+) -> bytes:
+    """读取上传文件并强制上限。优先看 Content-Length，再按块读并计数。"""
+    cl = request.headers.get("content-length")
+    if cl is not None:
+        try:
+            if int(cl) > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail={
+                        "error": True,
+                        "code": "ERR_PAYLOAD_TOO_LARGE",
+                        "message": (
+                            f"{kind} 上传过大（Content-Length {cl} 字节，"
+                            f"上限 {max_bytes // (1024 * 1024)} MB）"
+                        ),
+                    },
+                )
+        except ValueError:
+            pass
+
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_READ_CHUNK)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail={
+                    "error": True,
+                    "code": "ERR_PAYLOAD_TOO_LARGE",
+                    "message": (
+                        f"{kind} 上传过大（超过上限 "
+                        f"{max_bytes // (1024 * 1024)} MB）"
+                    ),
+                },
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _project_out(p: ProjectProfile) -> ProjectOut:
@@ -766,8 +820,8 @@ def export_excel(
 
 
 @router.get("/export/db")
-def export_db(user: WriteUser):
-    """导出当前 SQLite 库事务一致快照（.db）。管理员与操作员可用。"""
+def export_db(user: AdminUser):
+    """导出当前 SQLite 库事务一致快照（.db）。仅管理员。"""
     from datetime import datetime
 
     from fastapi.responses import Response
@@ -827,7 +881,9 @@ async def import_excel(
                 "message": "请上传 .xlsx Excel 文件",
             },
         )
-    raw = await file.read()
+    raw = await _read_upload_limited(
+        request, file, MAX_EXCEL_UPLOAD_BYTES, kind="Excel"
+    )
     if not raw:
         raise HTTPException(
             400,
@@ -892,7 +948,9 @@ async def import_db(
                 "message": "请上传 .db SQLite 文件",
             },
         )
-    raw = await file.read()
+    raw = await _read_upload_limited(
+        request, file, MAX_DB_UPLOAD_BYTES, kind="数据库"
+    )
     if not raw:
         raise HTTPException(
             400,
@@ -926,9 +984,10 @@ async def import_db(
             detail={"error": True, "code": "ERR_NOT_FOUND", "message": str(e)},
         ) from e
 
+    # 不返回绝对路径（信息泄露）；仅相对 backups/ 下的文件名
     return DbImportResultOut(
         ok=True,
-        backup_path=str(backup_path),
+        backup_path=f"backups/{backup_path.name}",
         message="已用上传的数据库替换当前库；先前库已自动备份。如页面异常请刷新或重新登录。",
     )
 
