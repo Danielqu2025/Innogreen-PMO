@@ -29,6 +29,10 @@ os.environ["PMO_BOOTSTRAP_ADMIN_PASSWORD"] = ""
 os.environ["PMO_CORS_ORIGINS"] = "http://127.0.0.1:5173"
 # 测试环境强制关文档，避免本地 web/.env 的 PMO_ENABLE_DOCS=true 污染断言
 os.environ["PMO_ENABLE_DOCS"] = "false"
+# 测试 client 是 HTTP：覆盖生产 .env 的 PMO_HTTPS_ONLY=true，否则 secure cookie 永远不传
+os.environ["PMO_HTTPS_ONLY"] = "false"
+# 测试同样关 trust-proxy（生产 .env 的 PMO_TRUST_PROXY_HEADER=true 会让 rate_limit 用 XFF，与测试无关）
+os.environ["PMO_TRUST_PROXY_HEADER"] = "false"
 
 sys.path.insert(0, str(BACKEND))
 

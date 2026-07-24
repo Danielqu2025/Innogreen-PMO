@@ -1,0 +1,33 @@
+[Unit]
+Description=Innogreen PMO (pmo.dqhermes.kdns.fr) FastAPI service
+After=network.target
+# 与 cloudflared 隧道同进程顺序：app 起来后再让 tunnel 接入
+# 但 cloudflared-qcc.service 是独立 unit；这里不强依赖，仅文档说明
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/Innogreen-PMO
+
+# 严格绑定 127.0.0.1，由 Cloudflare Tunnel 反代；绝不暴露 0.0.0.0
+Environment=PMO_HOST=127.0.0.1
+Environment=PMO_PORT=8000
+
+# .env 含 PMO_SESSION_SECRET / PMO_BOOTSTRAP_ADMIN_PASSWORD / PMO_HTTPS_ONLY 等敏感配置
+# 单元里不写明文 secret，全从 EnvironmentFile 读
+EnvironmentFile=/home/ubuntu/Innogreen-PMO/web/.env
+
+ExecStart=/home/ubuntu/Innogreen-PMO/.venv/bin/python -m uvicorn main:app \
+    --app-dir /home/ubuntu/Innogreen-PMO/web/backend \
+    --host 127.0.0.1 --port 8000 \
+    --no-server-header
+
+Restart=on-failure
+RestartSec=5
+
+# systemd 默认 umask 022 → .env 在 600 也只在 home 内可读；无需 ProtectHome=off
+# 但 systemd --user 默认有 ProtectHome=true，会让 /home/ubuntu 变不可读
+# 我们要读 .env 和 .venv，所以显式关闭
+ProtectHome=false
+
+[Install]
+WantedBy=default.target
