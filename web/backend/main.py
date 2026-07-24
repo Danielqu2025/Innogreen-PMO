@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -138,19 +140,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 中间件顺序（Starlette 后 add 的在最外层 → 先处理请求）：
-#   SecurityHeaders → RateLimit → CORS → SessionMiddleware
-# SecurityHeaders 在最外：所有响应都带头，包括 429 / 401。
-# RateLimit 在 CORS 之内：未授权 / 已超限都先走 CORS 头再加 429。
-# Session 在最内：路由级 get_current_user 才能解 session。
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.pmo_session_secret,
-    same_site="lax",
-    https_only=settings.pmo_https_only,
-    max_age=60 * 60 * 24 * 7,  # 7 天
-)
-# 设置 add_middleware 顺序：先 add 的在外层
+# 中间件顺序（Starlette add_middleware 是反向的：后 add 的在外层 → 先处理 request）：
+#   SessionMiddleware（最外，先解 session + 设 cookie）
+#   → CORS
+#   → SlowAPIMiddleware（限速）
+#   → SecurityHeaders（最内，路由出来后加响应头）
+# Session 必须在外层，否则请求还没进 session 就被路由级 get_current_user 抛 401。
+app.add_middleware(SecurityHeadersMiddleware)
+setup_rate_limit(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -158,12 +155,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SecurityHeadersMiddleware)
-setup_rate_limit(app)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.pmo_session_secret,
+    same_site="lax",
+    https_only=settings.pmo_https_only,
+    max_age=60 * 60 * 24 * 7,  # 7 天
+)
 
 app.include_router(auth_router)
 app.include_router(ops_router)
 app.include_router(tenant_router)
+
+
+# ============ SPA 静态托管 + fallback ============
+# 部署模式（参考 web/README.md § 生产部署）：
+#   - Cloudflare Tunnel 反代 127.0.0.1:8000
+#   - 前端 `npm run build` 产物在 web/frontend/dist/
+#   - 此处把 dist 挂到 /assets/；任何未匹配的非 /api /health 路径
+#     → 返回 index.html（React Router 前端路由）
+# 开发模式（npm run dev 由 Vite proxy 处理）不影响此段——Vite 不会访问 8000 的 /。
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "web" / "frontend" / "dist"
+if (FRONTEND_DIST / "index.html").exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(FRONTEND_DIST / "assets")),
+        name="frontend-assets",
+    )
+
+    @app.exception_handler(404)
+    async def spa_404(request: Request, exc):  # type: ignore[no-untyped-def]
+        """所有未匹配路由返回 index.html（SPA 路由）。
+
+        注意：API / 文档路径仍由具体 router 注册（它们的 404 不会到这）。
+        若 Request.url.path 以保留前缀开头，仍按 404 返回 JSON，避免 SPA 吞 API 错误。
+        """
+        p = request.url.path
+        reserved_prefixes = ("/api/", "/docs", "/redoc", "/openapi.")
+        if any(p.startswith(prefix) for prefix in reserved_prefixes):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(
+                status_code=404,
+                content={"detail": {"error": True, "code": "ERR_NOT_FOUND", "message": "Not Found"}},
+            )
+        return FileResponse(str(FRONTEND_DIST / "index.html"), media_type="text/html")
 
 
 @app.get("/health")
