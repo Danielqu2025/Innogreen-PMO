@@ -123,6 +123,15 @@
 }
 
 @media (max-width: 720px) {
+  /* 窄屏：隐藏 logo + 精简标题文字，给右上 nav 让出空间 */
+  .pmo-topbar.ant-layout-header {
+    height: 56px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .pmo-brand-logo-wrap {
+    display: none;
+  }
   .pmo-brand-text strong {
     font-size: 15px;
   }

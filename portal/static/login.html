@@ -106,6 +106,31 @@
       outline: 2px solid rgba(11, 95, 255, 0.25);
       border-color: var(--accent);
     }
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 44px; }
+    .password-toggle {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+    }
+    .password-toggle:hover { color: var(--accent); background: var(--card-soft); }
+    .password-toggle:focus { outline: 2px solid rgba(11, 95, 255, 0.3); }
+    .password-toggle svg { width: 20px; height: 20px; }
+    .password-toggle .eye-close { display: none; }
+    .password-wrap.show .password-toggle .eye-open { display: none; }
+    .password-wrap.show .password-toggle .eye-close { display: block; }
     .submit-btn {
       width: 100%;
       padding: 12px;
@@ -155,7 +180,19 @@
         </div>
         <div class="form-group">
           <label>密码</label>
-          <input type="password" name="password" required autocomplete="current-password">
+          <div class="password-wrap">
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+            <button type="button" class="password-toggle" aria-label="显示密码" title="显示密码">
+              <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+              <svg class="eye-close" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <button type="submit" class="submit-btn">登录</button>
       </form>
@@ -173,6 +210,19 @@
       form.addEventListener('submit', () => {
         const btn = form.querySelector('button[type=submit]');
         if (btn) { btn.disabled = true; btn.textContent = '登录中...'; }
+      });
+    }
+
+    // 密码可见切换
+    const pwWrap = document.querySelector('.password-wrap');
+    const pwInput = document.getElementById('password');
+    const pwToggle = document.querySelector('.password-toggle');
+    if (pwWrap && pwInput && pwToggle) {
+      pwToggle.addEventListener('click', () => {
+        const showing = pwWrap.classList.toggle('show');
+        pwInput.type = showing ? 'text' : 'password';
+        pwToggle.setAttribute('aria-label', showing ? '隐藏密码' : '显示密码');
+        pwToggle.setAttribute('title', showing ? '隐藏密码' : '显示密码');
       });
     }
   </script>

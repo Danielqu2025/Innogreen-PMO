@@ -474,6 +474,9 @@
       .section-title h2 { font-size: 22px; }
     }
     @media (max-width: 720px) {
+      /* 窄屏：隐藏 logo + 精简标题文字，给右上 nav 让出空间 */
+      .topbar { height: 56px; padding: 0 10px; gap: 8px; }
+      .brand-logo-wrap { display: none; }
       .brand-text strong { font-size: 15px; }
       .hero { margin-bottom: 28px; padding-bottom: 20px; }
     }
@@ -680,8 +683,8 @@
                 <div class="app-icon">${appIconSvg(app.app_code)}</div>
                 <span class="app-role">${escapeHtml(roleLabel[app.my_role] || app.my_role || '—')}</span>
               </div>
-              <div class="app-name">${escapeHtml(app.app_name)}</div>
-              <div class="app-desc">${escapeHtml(app.description || app.app_code)}</div>
+              <div class="app-name">${escapeHtml(app.description || app.app_code)}</div>
+              <div class="app-desc">${escapeHtml(app.app_code)}</div>
               <div class="app-foot">
                 <span class="code">${escapeHtml(app.app_code)}</span>
                 <span class="go">进入应用<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>

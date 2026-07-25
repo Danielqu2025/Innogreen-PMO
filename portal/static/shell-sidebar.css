@@ -370,4 +370,9 @@ body.shell-nav-open .nav-toggle-bar:nth-child(3) {
   .shell-sidebar-bottom {
     margin-top: 24px;
   }
+
+  /* 手机端窄屏：去掉「统一身份」提示框，给侧栏顶部内容让出位置 */
+  .shell-notice {
+    display: none;
+  }
 }
