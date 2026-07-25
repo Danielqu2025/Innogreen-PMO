@@ -137,9 +137,21 @@ export default function ProjectFormPage() {
 
   return (
     <div>
-      <Typography.Title level={3}>
-        {isNew ? "新增企业" : `编辑企业 · ${project?.project_code}`}
-      </Typography.Title>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {isNew ? "新增企业" : `编辑企业 · ${project?.project_code}`}
+        </Typography.Title>
+        <Link to={isNew ? "/ops/projects" : `/ops/projects/${id}`}>
+          <Button>返回</Button>
+        </Link>
+      </div>
 
       {isNew ? (
         <Form

@@ -519,10 +519,16 @@ export default function ProjectDetailPage() {
           {
             title: "第三方单位",
             dataIndex: "vendor",
-            width: 120,
+            width: 240,
+            align: "left" as const,
             render: (v: string | null | undefined) =>
               v ? (
-                <Button type="link" size="small" onClick={() => openVendorDrawer(v)}>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, height: "auto", textAlign: "left", whiteSpace: "normal" }}
+                  onClick={() => openVendorDrawer(v)}
+                >
                   {v}
                 </Button>
               ) : null,
