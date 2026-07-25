@@ -246,6 +246,7 @@ def build_export_workbook(
             [
                 "pitfall_id",
                 "stage_ref",
+                "task_ref",
                 "wrong_action",
                 "right_action",
                 "standard_ref",
@@ -261,6 +262,7 @@ def build_export_workbook(
                 [
                     p.pitfall_id,
                     p.stage_ref,
+                    p.task_ref,
                     p.wrong_action,
                     p.right_action,
                     p.standard_ref,
@@ -353,12 +355,44 @@ def _guide_table_rows() -> list[list]:
         ["blocker_note", "可选", "卡点说明（status=卡点时建议填写）", ""],
         ["notes", "可选", "备注", ""],
         ["task_name", "忽略", "导出时附带；导入时忽略，以系统任务名为准", ""],
+        [],
+        ["【避坑指南】", "", "", ""],
+        [
+            "pitfall_id",
+            "可选",
+            "已有 pitfall_id 则覆盖（建议保留），留空表示新建",
+            "从「数据导出」获得",
+        ],
+        [
+            "stage_ref",
+            "必填",
+            "阶段名（须已存在于系统阶段）",
+            "如 厂房改造项目前期审批准备",
+        ],
+        [
+            "task_ref",
+            "必填",
+            "关联任务编号（task_code），须为系统已启用的二级或三级任务",
+            "如 3.2（二级）或 1.3.1（三级）",
+        ],
+        ["wrong_action", "必填", "错误做法", ""],
+        ["right_action", "必填", "合规做法", ""],
+        [
+            "impact_level",
+            "可选",
+            "影响等级；缺省 中",
+            "极高 / 高 / 中 / 低",
+        ],
+        ["standard_ref", "可选", "依据/规范", ""],
+        ["trigger_condition", "可选", "触发条件", ""],
+        ["remediation", "可选", "补救建议", ""],
+        ["notes", "可选", "备注", ""],
     ]
     return rows
 
 
 def build_import_template() -> bytes:
-    """导入用空白模板（说明字段表 + 企业档案/任务进度示例）。"""
+    """导入用空白模板（说明字段表 + 企业档案/任务进度/避坑指南示例）。"""
     wb = Workbook()
     default = wb.active
     wb.remove(default)
@@ -454,6 +488,36 @@ def build_import_template() -> bytes:
             "",
             "",
             "模板示例：可与上方「企业档案」新建行配套使用",
+        ]
+    )
+
+    pitfalls = wb.create_sheet(SHEET_PITFALLS)
+    pitfalls.append(
+        [
+            "pitfall_id",
+            "stage_ref",
+            "task_ref",
+            "wrong_action",
+            "right_action",
+            "impact_level",
+            "standard_ref",
+            "trigger_condition",
+            "remediation",
+            "notes",
+        ]
+    )
+    pitfalls.append(
+        [
+            "",
+            "厂房改造项目前期审批准备",
+            "3.2",
+            "未做安全预评价直接施工",
+            "应先做安评并通过安全条件审查",
+            "极高",
+            "《建设项目安全设施「三同时」监督管理办法》",
+            "施工前未取得安评批复",
+            "立即停工并补办安评",
+            "模板示例：留空 pitfall_id 表示新建",
         ]
     )
 

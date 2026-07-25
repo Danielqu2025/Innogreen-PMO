@@ -425,6 +425,7 @@ export type DashboardSummary = {
 export type Pitfall = {
   pitfall_id: number;
   stage_ref: string | null;
+  task_ref: string | null;
   wrong_action: string;
   right_action: string;
   standard_ref: string | null;
@@ -471,6 +472,9 @@ export type ImportSummary = {
   projects_updated: number;
   progress_upserted: number;
   progress_skipped: number;
+  pitfalls_created: number;
+  pitfalls_updated: number;
+  pitfalls_skipped: number;
   warnings: string[];
   errors: string[];
 };

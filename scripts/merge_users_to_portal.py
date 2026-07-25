@@ -386,8 +386,8 @@ def apply_plan(
             cur = conn.execute(
                 """
                 INSERT INTO users
-                  (username, password_hash, display_name, role, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                  (username, password_hash, display_name, role, is_active, login_count, created_at)
+                VALUES (?, ?, ?, ?, ?, 0, ?)
                 """,
                 (
                     item.username,

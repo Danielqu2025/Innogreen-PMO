@@ -145,6 +145,7 @@ async def lifespan(_app: FastAPI):
     ensure_audit_immutable_triggers()
     ensure_project_is_active_column()
     ensure_project_full_name_column()
+    ensure_pitfall_task_ref_column()
     ensure_bootstrap_admin()
     yield
 
@@ -159,6 +160,41 @@ def ensure_project_full_name_column() -> None:
         if "full_name" not in cols:
             conn.execute(text("ALTER TABLE project_profile ADD COLUMN full_name TEXT"))
             print("[migrate] project_profile.full_name 已添加")
+
+
+def ensure_pitfall_task_ref_column() -> None:
+    """旧库升级：为 pitfall_guide 补 task_ref 列；现有数据按 stage 自动回填二级任务。"""
+    from sqlalchemy import text
+    from database import engine
+
+    with engine.begin() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(pitfall_guide)"))]
+        if "task_ref" in cols:
+            return
+        conn.execute(
+            text(
+                "ALTER TABLE pitfall_guide ADD COLUMN task_ref TEXT NOT NULL DEFAULT ''"
+            )
+        )
+        # 现有 pitfall 按 stage 选第一个二级任务回填
+        conn.execute(
+            text("""
+                UPDATE pitfall_guide
+                SET task_ref = (
+                    SELECT MIN(td.task_code)
+                    FROM task_detail td
+                    JOIN stage_map sm ON sm.stage_id = td.stage_id
+                    WHERE sm.stage_name = pitfall_guide.stage_ref
+                      AND td.task_code LIKE '_.%'
+                      AND td.task_code NOT LIKE '_.%.%'
+                )
+                WHERE task_ref = ''
+            """)
+        )
+        backfilled = conn.execute(
+            text("SELECT COUNT(*) FROM pitfall_guide WHERE task_ref <> ''")
+        ).scalar()
+        print(f"[migrate] pitfall_guide.task_ref 已添加；回填 {backfilled} 条")
 
 
 _docs_on = settings.pmo_enable_docs

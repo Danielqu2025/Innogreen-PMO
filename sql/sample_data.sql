@@ -135,11 +135,12 @@ INSERT INTO project_progress (project_id, task_id, status, assigned_to, complete
 -- 避坑指南样例（stage_ref 对齐 8 阶段正式名）
 -- ============================================
 INSERT INTO pitfall_guide (
-  stage_ref, wrong_action, right_action, standard_ref,
+  stage_ref, task_ref, wrong_action, right_action, standard_ref,
   impact_level, error_index, trigger_condition, remediation, source
 ) VALUES
 (
   '厂房改造项目前期审批准备',
+  '3.1',
   '没做安全预评价直接施工',
   '应先做安评并通过安全条件审查',
   '《建设项目安全设施设计管理办法》第十条',
@@ -148,6 +149,7 @@ INSERT INTO pitfall_guide (
 ),
 (
   '厂房改造项目前期审批准备',
+  '3.1',
   '环评报告未批先建',
   '必须取得环评批复后方可开工建设',
   '《环境影响评价法》第二十五条',
@@ -156,6 +158,7 @@ INSERT INTO pitfall_guide (
 ),
 (
   '厂房改造装修施工审批',
+  '5.1',
   '未取得施工许可证先开工',
   '必须取得施工许可证后方可施工',
   '《建筑法》第七条',
@@ -164,6 +167,7 @@ INSERT INTO pitfall_guide (
 ),
 (
   '项目施工及验收',
+  '6.1',
   '未做安全技术交底就施工',
   '施工前必须完成安全技术交底',
   '《建设工程安全生产管理条例》第二十一条',

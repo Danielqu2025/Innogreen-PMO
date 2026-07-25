@@ -29,6 +29,9 @@ export default function PitfallDetailPage() {
         <Descriptions.Item label="阶段" span={2}>
           {pitfall.stage_ref}
         </Descriptions.Item>
+        <Descriptions.Item label="关联任务">
+          {pitfall.task_ref || "—"}
+        </Descriptions.Item>
         <Descriptions.Item label="影响等级">
           <Tag color={impactColor}>{pitfall.impact_level}</Tag>
         </Descriptions.Item>

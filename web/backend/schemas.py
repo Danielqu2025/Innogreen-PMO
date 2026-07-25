@@ -174,6 +174,7 @@ class PitfallOut(BaseModel):
 
     pitfall_id: int
     stage_ref: str | None = None
+    task_ref: str | None = None
     wrong_action: str
     right_action: str
     standard_ref: str | None = None
@@ -213,12 +214,15 @@ class CriticalPathOut(BaseModel):
 
 
 class ImportSummaryOut(BaseModel):
-    """Excel 导入结果摘要（企业档案 + 任务进度）"""
+    """Excel 导入结果摘要（企业档案 + 任务进度 + 避坑指南）"""
     dry_run: bool
     projects_created: int = 0
     projects_updated: int = 0
     progress_upserted: int = 0
     progress_skipped: int = 0
+    pitfalls_created: int = 0
+    pitfalls_updated: int = 0
+    pitfalls_skipped: int = 0
     warnings: list[str] = []
     errors: list[str] = []
 
@@ -310,6 +314,7 @@ class JournalUpdate(BaseModel):
 class PitfallCreate(BaseModel):
     """创建避坑指南 - Phase C3"""
     stage_ref: str = Field(min_length=1)
+    task_ref: str = Field(min_length=1, description="二级或三级任务编号（task_code）")
     wrong_action: str = Field(min_length=1)
     right_action: str = Field(min_length=1)
     standard_ref: str | None = None

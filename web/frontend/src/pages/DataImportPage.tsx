@@ -165,23 +165,28 @@ export default function DataImportPage() {
       <Divider style={{ margin: "8px 0" }} />
 
       <Typography.Title level={5} style={{ margin: 0 }}>
-        Excel 导入（企业档案 + 任务进度）
+        Excel 导入（企业档案 + 任务进度 + 避坑指南）
       </Typography.Title>
       <Alert
-        type="warning"
+        type="info"
         showIcon
-        message="安全导入范围（MVP）"
+        message="增量导入：按 sheet 分别 upsert，缺哪个跳过哪个"
         description={
           <div>
             <p style={{ marginBottom: 8 }}>
-              仅写入与导出/模板格式一致的 <strong>企业档案</strong>、
-              <strong>任务进度</strong> sheet（按 project_code /
-              task_code upsert）。
+              Excel 文件<strong>只需包含你要更新的 sheet</strong>：
+            </p>
+            <ul style={{ margin: "0 0 8px", paddingLeft: 20 }}>
+              <li><strong>企业档案</strong>（可选）：按 project_code upsert 新建或更新</li>
+              <li><strong>任务进度</strong>（可选）：按 project_code + task_code upsert</li>
+              <li><strong>避坑指南</strong>（可选）：按 pitfall_id upsert（空则新建）</li>
+            </ul>
+            <p style={{ marginBottom: 8 }}>
+              阶段定义、任务明细等目录类 sheet <strong>不会被导入</strong>（请用系统页面维护）。
+              含<strong>任何上述可识别 sheet</strong>即可启动导入；三个都没有则报错。
             </p>
             <p style={{ marginBottom: 0 }}>
-              阶段定义、任务明细、避坑指南等目录类 sheet
-              <strong>不会被导入</strong>
-              。请先试跑确认摘要，再关闭试跑正式写入。
+              建议先<strong>试跑</strong>（不写库），确认摘要无误后再正式写入。
             </p>
           </div>
         }
@@ -231,6 +236,9 @@ export default function DataImportPage() {
               <li>更新企业：{summary.projects_updated}</li>
               <li>进度写入/更新：{summary.progress_upserted}</li>
               <li>进度跳过：{summary.progress_skipped}</li>
+              <li>避坑指南新建：{summary.pitfalls_created}</li>
+              <li>避坑指南更新：{summary.pitfalls_updated}</li>
+              <li>避坑指南跳过：{summary.pitfalls_skipped}</li>
               {summary.warnings.slice(0, 10).map((w) => (
                 <li key={w}>警告：{w}</li>
               ))}

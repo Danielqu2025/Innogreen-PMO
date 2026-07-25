@@ -135,6 +135,9 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
             if col not in pcols:
                 log(f"Adding project_progress.{col}...")
                 cursor.execute(f"ALTER TABLE project_progress ADD COLUMN {col} TEXT")
+        # 注：pitfall_guide.task_ref 列在生产环境由 backend lifespan 的
+        # ensure_pitfall_task_ref_column() 补装；init_db 是 destructive 重建，
+        # sample_data.sql 已含 task_ref 值，无需在此处理。
 
         log("Creating indexes...")
         exec_sql_file(cursor, SQL_DIR / "indexes.sql", required=False)

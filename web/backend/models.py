@@ -57,6 +57,7 @@ class PitfallGuide(Base):
 
     pitfall_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     stage_ref: Mapped[str | None] = mapped_column(Text)
+    task_ref: Mapped[str] = mapped_column(Text, nullable=False, default="")
     wrong_action: Mapped[str] = mapped_column(Text, nullable=False)
     right_action: Mapped[str] = mapped_column(Text, nullable=False)
     standard_ref: Mapped[str | None] = mapped_column(Text)

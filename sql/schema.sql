@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS task_dependency (
 CREATE TABLE IF NOT EXISTS pitfall_guide (
   pitfall_id        INTEGER PRIMARY KEY AUTOINCREMENT,
   stage_ref         TEXT,                     -- 关联阶段名（TEXT，允许跨阶段）
+  task_ref          TEXT NOT NULL DEFAULT '', -- 关联任务编号（task_code，二级或三级；如 '3.2' 或 '1.3.1'）
   wrong_action      TEXT NOT NULL,            -- 错误做法
   right_action      TEXT NOT NULL,            -- 合规做法
   standard_ref      TEXT,                     -- 依据/规范

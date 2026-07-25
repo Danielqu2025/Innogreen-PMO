@@ -69,6 +69,7 @@ def test_pitfall_create_writes_audit(operator_client):
         "/api/ops/pitfalls",
         json={
             "stage_ref": STAGE,
+            "task_ref": "3.1",
             "wrong_action": "审计错误做法",
             "right_action": "审计合规做法",
             "impact_level": "中",
