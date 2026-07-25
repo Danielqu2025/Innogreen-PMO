@@ -139,6 +139,7 @@ export type Project = {
   company_name: string;
   short_name: string | null;
   full_name: string | null;
+  credit_code: string | null;
   business_type: string | null;
   building: string | null;
   current_stage_id: number | null;
@@ -510,6 +511,110 @@ export async function importDb(file: File, smartMigrate = true): Promise<DbImpor
     params: { confirm: true, migrate: smartMigrate },
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 120000,
+  });
+  return r.data;
+}
+
+// ============ qcc 企业资质库集成（方案一） ============
+export type QccStatus = {
+  available: boolean;
+};
+
+export type QccCompanyInfo = {
+  id: number;
+  name: string;
+  credit_code: string | null;
+  legal_person: string | null;
+  status: string | null;
+  founded_date: string | null;
+  registered_capital: string | null;
+  paid_capital: string | null;
+  company_type: string | null;
+  business_term: string | null;
+  taxpayer_qualification: string | null;
+  staff_size: string | null;
+  insured_count: string | null;
+  industry: string | null;
+  region: string | null;
+  registration_authority: string | null;
+  address: string | null;
+  business_scope: string | null;
+  english_name: string | null;
+  short_name: string | null;
+  notes: string | null;
+  tags: string | null;
+  qcc_synced_at: string | null;
+};
+
+export type QccQualification = {
+  id: number;
+  category: string;
+  name: string;
+  cert_no: string | null;
+  level: string | null;
+  status: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  issuer: string | null;
+  issue_date: string | null;
+  product_name: string | null;
+  scope_name: string | null;
+  cert_domain: string | null;
+  cert_sequence: string | null;
+  cert_industry: string | null;
+  business_type: string | null;
+  grade: string | null;
+  extra_json: string | null;
+  source: string;
+};
+
+export type QccQualificationStats = {
+  total: number;
+  valid: number;
+  expiring_soon: number;
+  expired: number;
+};
+
+export type QccLookupResult = {
+  found: boolean;
+  company: QccCompanyInfo | null;
+  qualifications: QccQualification[];
+  stats: QccQualificationStats | null;
+};
+
+export type QccExpiringItem = {
+  id: number;
+  company_id: number;
+  category: string;
+  name: string;
+  cert_no: string | null;
+  level: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  issuer: string | null;
+  product_name: string | null;
+  company_name: string;
+  credit_code: string;
+};
+
+export async function getQccStatus(): Promise<QccStatus> {
+  const r = await api.get<QccStatus>("/api/ops/qcc/status");
+  return r.data;
+}
+
+export async function lookupQccCompany(params: {
+  credit_code?: string;
+  name?: string;
+}): Promise<QccLookupResult> {
+  const r = await api.get<QccLookupResult>("/api/ops/qcc/companies/lookup", { params });
+  return r.data;
+}
+
+export async function getQccExpiringQualifications(
+  days = 30,
+): Promise<QccExpiringItem[]> {
+  const r = await api.get<QccExpiringItem[]>("/api/ops/qcc/companies/expiring", {
+    params: { days },
   });
   return r.data;
 }

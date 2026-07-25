@@ -54,6 +54,14 @@ from services.project_service import (
     update_project,
 )
 from services import task_service
+from services.qcc_service import (
+    get_expiring_qualifications,
+    is_qcc_available,
+    list_company_qualifications,
+    lookup_company_by_credit_code,
+    lookup_company_by_name,
+    qualification_stats,
+)
 
 router = APIRouter(prefix="/api/ops", dependencies=[Depends(get_current_user)])
 
@@ -855,6 +863,85 @@ def stage_pitfalls(stage_id: int, db: Session = Depends(get_db)) -> list[Pitfall
         .all()
     )
     return [PitfallOut.model_validate(p) for p in rows]
+
+
+@router.get("/qcc/status")
+def qcc_status() -> dict:
+    """查询 qcc 数据库连接状态。"""
+    available = is_qcc_available()
+    return {"available": available}
+
+
+@router.get("/qcc/companies/lookup")
+def qcc_company_lookup(
+    credit_code: str | None = Query(None),
+    name: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    按统一社会信用代码或企业名称查询 qcc 企业工商信息。
+    credit_code 和 name 二选一，优先 credit_code。
+    """
+    if not is_qcc_available():
+        raise HTTPException(
+            503,
+            detail={
+                "error": True,
+                "code": "ERR_QCC_UNAVAILABLE",
+                "message": "qcc 数据库未配置或文件不存在",
+            },
+        )
+
+    if not credit_code and not name:
+        raise HTTPException(
+            400,
+            detail={
+                "error": True,
+                "code": "ERR_MISSING_PARAM",
+                "message": "需提供 credit_code 或 name 参数",
+            },
+        )
+
+    company = None
+    if credit_code:
+        company = lookup_company_by_credit_code(db, credit_code)
+    if not company and name:
+        company = lookup_company_by_name(db, name)
+
+    if not company:
+        return {"found": False, "company": None, "qualifications": [], "stats": None}
+
+    qcc_company_id = company["id"]
+    quals = list_company_qualifications(db, qcc_company_id)
+    stats = qualification_stats(db, qcc_company_id)
+
+    return {
+        "found": True,
+        "company": company,
+        "qualifications": quals,
+        "stats": stats,
+    }
+
+
+@router.get("/qcc/companies/expiring")
+def qcc_expiring_qualifications(
+    days: int = Query(30, ge=1, le=180),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """
+    列出 qcc 中即将到期（默认30天内）的资质证照。
+    用于全局到期预警。
+    """
+    if not is_qcc_available():
+        raise HTTPException(
+            503,
+            detail={
+                "error": True,
+                "code": "ERR_QCC_UNAVAILABLE",
+                "message": "qcc 数据库未配置或文件不存在",
+            },
+        )
+    return get_expiring_qualifications(db, days)
 
 
 @router.get("/dashboard/summary", response_model=DashboardSummary)

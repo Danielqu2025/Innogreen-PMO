@@ -85,6 +85,7 @@ class ProjectProfile(Base):
     company_name: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     short_name: Mapped[str | None] = mapped_column(Text)
     full_name: Mapped[str | None] = mapped_column(Text)
+    credit_code: Mapped[str | None] = mapped_column(Text)
     business_type: Mapped[str | None] = mapped_column(Text)
     building: Mapped[str | None] = mapped_column(Text)
     floor: Mapped[str | None] = mapped_column(Text)

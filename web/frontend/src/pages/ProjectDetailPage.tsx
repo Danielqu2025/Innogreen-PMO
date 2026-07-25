@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Descriptions,
+  Drawer,
   Modal,
   Select,
   Space,
@@ -25,6 +26,7 @@ import {
   type JournalEntry,
   type Progress,
   type Project,
+  type QccLookupResult,
   type Stage,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -186,6 +188,11 @@ export default function ProjectDetailPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [cp, setCp] = useState<CriticalPath | null>(null);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [qccInfo, setQccInfo] = useState<QccLookupResult | null>(null);
+  const [qccDrawerOpen, setQccDrawerOpen] = useState(false);
+  const [vendorQccInfo, setVendorQccInfo] = useState<QccLookupResult | null>(null);
+  const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
+  const [vendorCompanyName, setVendorCompanyName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -215,6 +222,23 @@ export default function ProjectDetailPage() {
     }
   };
 
+  /** 查询第三方单位的 qcc 信息并打开抽屉 */
+  const openVendorDrawer = (vendorName: string) => {
+    setVendorCompanyName(vendorName);
+    api
+      .get<QccLookupResult>("/api/ops/qcc/companies/lookup", {
+        params: { name: vendorName },
+      })
+      .then((r) => {
+        setVendorQccInfo(r.data);
+        setVendorDrawerOpen(true);
+      })
+      .catch(() => {
+        setVendorQccInfo({ found: false, company: null, qualifications: [], stats: null });
+        setVendorDrawerOpen(true);
+      });
+  };
+
   useEffect(() => {
     if (!id) return;
     const pid = Number(id);
@@ -239,6 +263,21 @@ export default function ProjectDetailPage() {
           setStageFilter(first.stage_id);
         } else {
           setStageFilter("all");
+        }
+        // 同时尝试从 qcc 拉取企业工商信息和资质（优先用统一社会信用代码，其次用企业全称）
+        const qccParams: { credit_code?: string; name?: string } = {};
+        if (p.data.credit_code) {
+          qccParams.credit_code = p.data.credit_code;
+        } else if (p.data.full_name) {
+          qccParams.name = p.data.full_name;
+        }
+        if (qccParams.credit_code || qccParams.name) {
+          api
+            .get<QccLookupResult>("/api/ops/qcc/companies/lookup", { params: qccParams })
+            .then((q) => setQccInfo(q.data))
+            .catch(() => {
+              // qcc 未配置或查询失败，静默忽略
+            });
         }
       })
       .catch((e) => setError(e.message));
@@ -345,6 +384,11 @@ export default function ProjectDetailPage() {
             <Link to={`/ops/projects/${id}/edit`}>
               <Button size="small">编辑</Button>
             </Link>
+          )}
+          {qccInfo?.found && (
+            <Button type="primary" size="small" onClick={() => setQccDrawerOpen(true)}>
+              企业详情
+            </Button>
           )}
           {isAdmin && (
             project.is_active !== 0 ? (
@@ -472,6 +516,17 @@ export default function ProjectDetailPage() {
             width: 140,
             ellipsis: true,
           },
+          {
+            title: "第三方单位",
+            dataIndex: "vendor",
+            width: 120,
+            render: (v: string | null | undefined) =>
+              v ? (
+                <Button type="link" size="small" onClick={() => openVendorDrawer(v)}>
+                  {v}
+                </Button>
+              ) : null,
+          },
           ...(canWrite
             ? [
                 {
@@ -558,6 +613,279 @@ export default function ProjectDetailPage() {
           停用后该项目将从默认列表中隐藏，但仍可通过筛选恢复。
         </p>
       </Modal>
+
+      {/* 企业详情抽屉（qcc 工商信息 + 资质证照） */}
+      <Drawer
+        title={qccInfo?.company?.name ?? "企业详情"}
+        open={qccDrawerOpen}
+        onClose={() => setQccDrawerOpen(false)}
+        width={680}
+      >
+        {qccInfo?.stats && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Text type="secondary">
+              资质证照 {qccInfo.stats.total} 项
+              {qccInfo.stats.valid > 0 && (
+                <Tag color="success" style={{ marginLeft: 8 }}>
+                  有效 {qccInfo.stats.valid}
+                </Tag>
+              )}
+              {qccInfo.stats.expiring_soon > 0 && (
+                <Tag color="warning" style={{ marginLeft: 4 }}>
+                  即将到期 {qccInfo.stats.expiring_soon}
+                </Tag>
+              )}
+              {qccInfo.stats.expired > 0 && (
+                <Tag color="error" style={{ marginLeft: 4 }}>
+                  已过期 {qccInfo.stats.expired}
+                </Tag>
+              )}
+            </Typography.Text>
+          </div>
+        )}
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+          {qccInfo?.company?.credit_code && (
+            <Descriptions.Item label="统一社会信用代码">
+              {qccInfo.company.credit_code}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.legal_person && (
+            <Descriptions.Item label="法定代表人">
+              {qccInfo.company.legal_person}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.status && (
+            <Descriptions.Item label="登记状态">
+              <Tag color={qccInfo.company.status === "存续" ? "success" : "default"}>
+                {qccInfo.company.status}
+              </Tag>
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.founded_date && (
+            <Descriptions.Item label="成立日期">
+              {qccInfo.company.founded_date}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.registered_capital && (
+            <Descriptions.Item label="注册资本">
+              {qccInfo.company.registered_capital}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.paid_capital && (
+            <Descriptions.Item label="实缴资本">
+              {qccInfo.company.paid_capital}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.company_type && (
+            <Descriptions.Item label="企业类型">
+              {qccInfo.company.company_type}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.staff_size && (
+            <Descriptions.Item label="人员规模">
+              {qccInfo.company.staff_size}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.insured_count && (
+            <Descriptions.Item label="参保人数">
+              {qccInfo.company.insured_count}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.industry && (
+            <Descriptions.Item label="所属行业">
+              {qccInfo.company.industry}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.region && (
+            <Descriptions.Item label="所属区域">
+              {qccInfo.company.region}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.registration_authority && (
+            <Descriptions.Item label="登记机关">
+              {qccInfo.company.registration_authority}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.business_term && (
+            <Descriptions.Item label="营业期限">
+              {qccInfo.company.business_term}
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.taxpayer_qualification && (
+            <Descriptions.Item label="纳税人资质">
+              {qccInfo.company.taxpayer_qualification}
+            </Descriptions.Item>
+          )}
+          <Descriptions.Item label="注册地址" span={2}>
+            {qccInfo?.company?.address || "—"}
+          </Descriptions.Item>
+          {qccInfo?.company?.business_scope && (
+            <Descriptions.Item label="经营范围" span={2}>
+              <div style={{ maxHeight: 150, overflowY: "auto", whiteSpace: "pre-wrap" }}>
+                {qccInfo.company.business_scope}
+              </div>
+            </Descriptions.Item>
+          )}
+          {qccInfo?.company?.qcc_synced_at && (
+            <Descriptions.Item label="数据同步时间">
+              {qccInfo.company.qcc_synced_at}
+            </Descriptions.Item>
+          )}
+        </Descriptions>
+
+        {/* 资质证照列表 */}
+        {qccInfo?.qualifications && qccInfo.qualifications.length > 0 && (
+          <>
+            <Typography.Title level={5} style={{ marginTop: 24, marginBottom: 12 }}>
+              资质证照
+            </Typography.Title>
+            <Table
+              rowKey="id"
+              dataSource={qccInfo.qualifications}
+              size="small"
+              pagination={{ pageSize: 10, size: "small" }}
+              scroll={{ x: 900 }}
+              columns={[
+                {
+                  title: "资质名称",
+                  dataIndex: "name",
+                  width: 220,
+                  ellipsis: true,
+                },
+                {
+                  title: "证书编号",
+                  dataIndex: "cert_no",
+                  width: 160,
+                  ellipsis: true,
+                },
+                { title: "类别", dataIndex: "category", width: 100 },
+                {
+                  title: "等级",
+                  dataIndex: "level",
+                  width: 70,
+                  render: (v: string | null) => v || "—",
+                },
+                {
+                  title: "有效期至",
+                  dataIndex: "valid_to",
+                  width: 120,
+                  render: (v: string | null) => {
+                    if (!v) return "长期";
+                    const now = new Date();
+                    const exp = new Date(v);
+                    const diffDays = Math.ceil(
+                      (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+                    );
+                    if (diffDays < 0)
+                      return <Tag color="error">{v}（已过期）</Tag>;
+                    if (diffDays <= 30)
+                      return <Tag color="warning">{v}（即将到期）</Tag>;
+                    return v;
+                  },
+                },
+                {
+                  title: "发证机关",
+                  dataIndex: "issuer",
+                  width: 160,
+                  ellipsis: true,
+                },
+              ]}
+            />
+          </>
+        )}
+      </Drawer>
+
+      {/* 第三方单位详情抽屉 */}
+      <Drawer
+        title={vendorCompanyName || "第三方单位"}
+        open={vendorDrawerOpen}
+        onClose={() => setVendorDrawerOpen(false)}
+        width={600}
+      >
+        {vendorQccInfo?.found && vendorQccInfo.company ? (
+          <>
+            <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+              {vendorQccInfo.company.credit_code && (
+                <Descriptions.Item label="统一社会信用代码">
+                  {vendorQccInfo.company.credit_code}
+                </Descriptions.Item>
+              )}
+              {vendorQccInfo.company.legal_person && (
+                <Descriptions.Item label="法定代表人">
+                  {vendorQccInfo.company.legal_person}
+                </Descriptions.Item>
+              )}
+              {vendorQccInfo.company.status && (
+                <Descriptions.Item label="登记状态">
+                  <Tag color={vendorQccInfo.company.status === "存续" ? "success" : "default"}>
+                    {vendorQccInfo.company.status}
+                  </Tag>
+                </Descriptions.Item>
+              )}
+              {vendorQccInfo.company.registered_capital && (
+                <Descriptions.Item label="注册资本">
+                  {vendorQccInfo.company.registered_capital}
+                </Descriptions.Item>
+              )}
+              {vendorQccInfo.company.industry && (
+                <Descriptions.Item label="所属行业">
+                  {vendorQccInfo.company.industry}
+                </Descriptions.Item>
+              )}
+              <Descriptions.Item label="注册地址" span={2}>
+                {vendorQccInfo.company.address || "—"}
+              </Descriptions.Item>
+              {vendorQccInfo.company.business_scope && (
+                <Descriptions.Item label="经营范围" span={2}>
+                  <div style={{ maxHeight: 150, overflowY: "auto", whiteSpace: "pre-wrap" }}>
+                    {vendorQccInfo.company.business_scope}
+                  </div>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+            {vendorQccInfo.qualifications && vendorQccInfo.qualifications.length > 0 && (
+              <>
+                <Typography.Title level={5} style={{ marginTop: 20, marginBottom: 8 }}>
+                  资质证照
+                </Typography.Title>
+                <Table
+                  rowKey="id"
+                  dataSource={vendorQccInfo.qualifications}
+                  size="small"
+                  pagination={{ pageSize: 5, size: "small" }}
+                  scroll={{ x: 800 }}
+                  columns={[
+                    { title: "资质名称", dataIndex: "name", width: 180, ellipsis: true },
+                    { title: "证书编号", dataIndex: "cert_no", width: 140, ellipsis: true },
+                    { title: "类别", dataIndex: "category", width: 90 },
+                    {
+                      title: "有效期至",
+                      dataIndex: "valid_to",
+                      width: 120,
+                      render: (v: string | null) => {
+                        if (!v) return "长期";
+                        const now = new Date();
+                        const exp = new Date(v);
+                        const diffDays = Math.ceil(
+                          (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+                        );
+                        if (diffDays < 0) return <Tag color="error">{v}（已过期）</Tag>;
+                        if (diffDays <= 30) return <Tag color="warning">{v}（即将到期）</Tag>;
+                        return v;
+                      },
+                    },
+                    { title: "发证机关", dataIndex: "issuer", width: 140, ellipsis: true },
+                  ]}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <Typography.Text type="secondary">
+            暂无企业详情数据
+          </Typography.Text>
+        )}
+      </Drawer>
     </div>
   );
 }

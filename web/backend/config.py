@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # 默认 false：直接对外时客户端可伪造 XFF 绕过 IP 限速。
     # 仅在可信反向代理（nginx / Cloudflare Tunnel）后设 true。
     pmo_trust_proxy_header: bool = False
+    # qcc 企业资质库路径（用于方案一：直接 ATTACH qcc 数据库只读查询）
+    # 同机部署时设为 qcc 的 data/qualifications.db 绝对路径，留空则禁用 qcc 关联功能
+    pmo_qcc_db_path: str = ""
 
     @field_validator("pmo_session_secret")
     @classmethod

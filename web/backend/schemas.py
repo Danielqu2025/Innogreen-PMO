@@ -71,6 +71,7 @@ class ProjectOut(BaseModel):
     company_name: str
     short_name: str | None = None
     full_name: str | None = None
+    credit_code: str | None = None
     business_type: str | None = None
     building: str | None = None
     current_stage_id: int | None = None
@@ -245,6 +246,7 @@ class ProjectCreate(BaseModel):
     company_name: str = Field(min_length=1)
     short_name: str | None = None
     full_name: str | None = None
+    credit_code: str | None = None
     business_type: str | None = None
     building: str | None = None
     notes: str | None = None
@@ -255,6 +257,7 @@ class ProjectUpdate(BaseModel):
     project_code: str | None = Field(default=None, min_length=1)
     short_name: str | None = None
     full_name: str | None = None
+    credit_code: str | None = None
     business_type: str | None = None
     building: str | None = None
     project_status: str | None = None

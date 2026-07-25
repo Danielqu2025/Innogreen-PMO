@@ -1,15 +1,5 @@
 # CLAUDE.md
 
-<!-- ============================================
-     维护清单：完成以下变更后，同步更新本文档
-     ============================================
-     目录结构 (services/pages/deploy)
-     API 端点 (新增/废弃路由)
-     认证/安全配置
-     开发命令 (新增脚本/依赖)
-     版本状态 (里程碑完成)
-     ============================================ -->
-
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -193,6 +183,8 @@ innogreen-pmo/
                                 # Stage/List/Detail, Pitfall/List/Form/Detail, UserManagement, TaskCatalog,
                                 # DataImport, DataExport, TenantPlaceholder
 ```
+
+**Backend services** (`web/backend/services/`): audit, critical_path, dashboard, journal, progress_service, project_service, pitfall_service, task_service, import_service, export_service, db_transfer
 
 ## Web App Architecture (Phase C)
 
