@@ -338,6 +338,20 @@ class LoginIn(BaseModel):
     password: str
 
 
+class RegisterIn(BaseModel):
+    """普通用户注册 - 默认 viewer 角色"""
+    username: str = Field(min_length=2)
+    password: str = Field(min_length=8)
+    display_name: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def _reject_weak_password(cls, v: str) -> str:
+        if is_weak_password(v):
+            raise ValueError("密码过弱，请更换")
+        return v
+
+
 class UserCreate(BaseModel):
     """管理员新建用户 - Phase C"""
     username: str = Field(min_length=1)

@@ -2,6 +2,7 @@
 
 - POST /api/auth/login   账号密码登录（写会话 cookie）
 - POST /api/auth/logout  登出（清会话）
+- POST /api/auth/register 普通用户注册（默认 viewer 角色）
 - GET  /api/auth/me      当前用户（前端 AuthContext 探测）
 - 管理员专用：GET/POST /api/auth/users、PATCH /api/auth/users/{id}
 - 管理员专用：GET /api/auth/audit（审计 / 登录记录）
@@ -21,6 +22,7 @@ from schemas import (
     AuditLogOut,
     ChangePasswordIn,
     LoginIn,
+    RegisterIn,
     UserCreate,
     UserOut,
     UserUpdate,
@@ -116,6 +118,58 @@ def login(
 def logout(request: Request) -> dict:
     request.session.clear()
     return {"ok": True}
+
+
+@router.post("/register", response_model=UserOut, status_code=201)
+@limiter.limit("5/minute")  # 防批量注册
+def register(
+    request: Request,
+    response: Response,
+    body: RegisterIn,
+    db: Session = Depends(get_db),
+) -> UserOut:
+    """普通用户自助注册，默认 viewer 角色（只读）。"""
+    username = body.username.strip()
+
+    # 检查用户名是否已存在
+    existing = db.execute(
+        select(User).where(User.username == username)
+    ).scalar_one_or_none()
+    if existing:
+        raise _err(409, "用户名已存在，请换一个", "ERR_CONFLICT")
+
+    try:
+        password_hash = hash_password(body.password)
+    except ValueError as e:
+        raise _err(400, str(e), "ERR_BAD_REQUEST") from e
+
+    user = User(
+        username=username,
+        password_hash=password_hash,
+        display_name=(body.display_name or username).strip() or None,
+        role="viewer",  # 默认只读角色
+        is_active=1,
+    )
+    db.add(user)
+    try:
+        db.flush()
+    except IntegrityError as e:
+        db.rollback()
+        raise _err(409, f"注册失败: {username}", "ERR_CONFLICT") from e
+
+    # 注册成功，自动登录
+    request.session["user_id"] = user.user_id
+    log_user_create(
+        db,
+        user.username,
+        user.user_id,
+        {"username": username, "role": "viewer"},
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    db.refresh(user)
+    return _user_out(user)
 
 
 @router.get("/me", response_model=UserOut)
@@ -310,6 +364,47 @@ def update_user(
     db.commit()
     db.refresh(target)
     return _user_out(target)
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    current: AdminUser,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> None:
+    """删除用户（永久删除，非停用）。"""
+    target = db.get(User, user_id)
+    if target is None:
+        raise _err(404, "用户不存在", "ERR_NOT_FOUND")
+
+    # 不能删除自己
+    if current.user_id == user_id:
+        raise _err(409, "不能删除自己的账号", "ERR_CONFLICT")
+
+    # 不能删除最后一个管理员
+    if target.role == "admin":
+        active_admins = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.role == "admin", User.is_active == 1)
+        ) or 0
+        if active_admins <= 1:
+            raise _err(409, "不能删除最后一个管理员", "ERR_CONFLICT")
+
+    username = target.username
+    db.delete(target)
+    log_action(
+        db,
+        current.username,
+        "DELETE",
+        "users",
+        user_id,
+        payload={"username": username},
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
 
 
 @router.get("/audit", response_model=list[AuditLogOut])

@@ -1,5 +1,15 @@
 # CLAUDE.md
 
+<!-- ============================================
+     维护清单：完成以下变更后，同步更新本文档
+     ============================================
+     目录结构 (services/pages/deploy)
+     API 端点 (新增/废弃路由)
+     认证/安全配置
+     开发命令 (新增脚本/依赖)
+     版本状态 (里程碑完成)
+     ============================================ -->
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -17,7 +27,7 @@ Innogreen PMO (项目管理办公室) is a digital foundation for the **Shanghai
 | Version | Focus | Status |
 |---------|-------|--------|
 | v1.2 | Data model + Python CLI tools | Done |
-| v1.3 | Internal web app (FastAPI + React) | Phase C3 Done — read + write + audit + multi-user auth |
+| v1.3 | Internal web app (FastAPI + React) | Phase C3 Done — read + write + audit + multi-user session auth |
 | v1.4 | Tenant-facing portal (`/tenant/*`) | Planned (placeholder route only) |
 
 > Phase timeline within v1.3: **A** data foundation → **B** read-only API/UI → **C** write operations (projects / progress / pitfalls) + audit log → **C3** pitfall authoring + **auth** multi-user login. Backend reports `version="1.3.0-phase-c3"`.
@@ -152,6 +162,8 @@ innogreen-pmo/
 │
 ├── .github/workflows/ci.yml     # CI: pytest (py3.12) + npm build (node20)
 │
+└── deploy/                      # Production: systemd units, nginx, backup timer
+│
 └── web/                         # Phase C web app
     ├── README.md                # Phase C runbook (routes, env, tests, backup)
     ├── .env.example             # PMO_SESSION_SECRET / bootstrap admin / CORS
@@ -165,8 +177,10 @@ innogreen-pmo/
     │   ├── models.py            # SQLAlchemy ORM (users + audit_log)
     │   ├── schemas.py           # pydantic read/write/auth schemas
     │   ├── routers/ops.py      # /api/ops (read+write) + /api/tenant stub
-    │   ├── routers/auth.py      # /api/auth: login/logout/me + user management
-    │   └── services/            # audit, critical_path, project_service, progress_service, pitfall_service
+    │   ├── routers/auth.py      # /api/auth: login/logout/register/me + user CRUD/delete
+    │   └── services/            # audit, critical_path, dashboard, journal,
+                                # progress_service, project_service, pitfall_service,
+                                # task_service, import_service, export_service, db_transfer
     └── frontend/                # React 19 + Ant Design 6 + react-router 7
         └── src/
             ├── App.tsx          # routes + AuthProvider
@@ -175,13 +189,18 @@ innogreen-pmo/
             │   ├── AuthContext.tsx  # user/loading/login/logout
             │   └── RequireAuth.tsx
             ├── layout/AppLayout.tsx  # role tag, admin menu, logout
-            └── pages/           # Dashboard, Project/List/Form/Detail/TaskUpdate,
-                                # Stage/List/Detail, Pitfall/List/Form/Detail, UserManagement, Login
+            └── pages/           # Login, Register, Dashboard, Project/List/Form/Detail/TaskUpdate,
+                                # Stage/List/Detail, Pitfall/List/Form/Detail, UserManagement, TaskCatalog,
+                                # DataImport, DataExport, TenantPlaceholder
 ```
 
 ## Web App Architecture (Phase C)
 
-**Auth model**: username/password + bcrypt + Starlette `SessionMiddleware` (itsdangerous signed cookie, SameSite=Lax). Three roles: `admin` (full + user mgmt), `operator` (read + Phase C write), `viewer` (read-only). `audit_log.actor = username`; `ip_address`/`user_agent` filled on writes. `/api/tenant/*` is a v1.4 placeholder (501).
+**UI 风格**：与 qcc 系统保持一致的蓝色主题（#2563eb）、深蓝渐变侧边栏、卡片式布局。
+
+**Auth model**: username/password + bcrypt + Starlette `SessionMiddleware` (itsdangerous signed cookie, SameSite=Lax). Three roles: `admin` (full + user mgmt), `operator` (read + Phase C write), `viewer` (registered users, read-only). `/api/auth/register` allows self-registration (default `viewer` role). `audit_log.actor = username`; `ip_address`/`user_agent` filled on writes. `/api/tenant/*` is a v1.4 placeholder (501).
+
+> ⚠️ **Security critical**: Backend **must** bind to `127.0.0.1` only — `PMO_SESSION_SECRET` is the signing key; if leaked, attackers can forge admin sessions. Set `PMO_HTTPS_ONLY=true` behind HTTPS proxy and `PMO_CORS_ORIGINS` to actual frontend origin (not `*`). See [web/README.md](web/README.md) §4 for full deployment hardening.
 
 **Read endpoints** (`GET`): stages, tasks, dependencies, projects (+ filters), progress, critical-path, blockers, dashboard summary, pitfalls.
 

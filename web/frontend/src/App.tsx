@@ -7,6 +7,7 @@ import RequireAuth from "./auth/RequireAuth";
 import RequireWrite from "./auth/RequireWrite";
 import AppLayout from "./layout/AppLayout";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
 // 动态导入页面组件，减少初始包体积
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -37,10 +38,15 @@ export default function App() {
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: "#1677ff",
-          colorError: "#ff4d4f",
-          colorWarning: "#faad14",
-          colorSuccess: "#52c41a",
+          // 与 qcc 保持一致的配色方案
+          colorPrimary: "#2563eb",
+          colorError: "#dc2626",
+          colorWarning: "#d97706",
+          colorSuccess: "#047857",
+          colorBgBase: "#f4f6f8",
+          colorTextBase: "#1f2937",
+          borderRadius: 8,
+          fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
         },
       }}
     >
@@ -48,6 +54,7 @@ export default function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/tenant/*" element={<TenantPlaceholderPage />} />
             <Route element={<RequireAuth />}>
               <Route path="/ops" element={<AppLayout />}>

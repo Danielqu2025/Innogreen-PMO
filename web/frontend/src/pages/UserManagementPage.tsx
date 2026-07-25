@@ -18,6 +18,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   createUser,
+  deleteUser,
   listAuditLogs,
   listUsers,
   updateUser,
@@ -248,6 +249,16 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleDelete = async (u: User) => {
+    try {
+      await deleteUser(u.user_id);
+      message.success("已删除");
+      reload();
+    } catch (e) {
+      message.error(errMsg(e));
+    }
+  };
+
   const openEdit = (u: User) => {
     setEditUser(u);
     editForm.setFieldsValue({
@@ -328,6 +339,18 @@ export default function UserManagementPage() {
                 type={r.is_active ? "default" : "primary"}
               >
                 {r.is_active ? "停用" : "启用"}
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title={`确定永久删除用户「${r.username}」吗？此操作不可恢复。`}
+              okText="删除"
+              okButtonProps={{ danger: true }}
+              cancelText="取消"
+              disabled={isSelf}
+              onConfirm={() => handleDelete(r)}
+            >
+              <Button size="small" danger disabled={isSelf}>
+                删除
               </Button>
             </Popconfirm>
           </Space>

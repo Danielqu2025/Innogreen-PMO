@@ -1,4 +1,4 @@
-import { Layout, Menu, Typography, Button, Tag, Space, theme, Modal, Form, Input } from "antd";
+import { Layout, Menu, Typography, Button, Tag, Space, Modal, Form, Input } from "antd";
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -45,7 +45,6 @@ const SETTINGS_CHILD_PREFIXES = [
 export default function AppLayout() {
   const loc = useLocation();
   const nav = useNavigate();
-  const { token } = theme.useToken();
   const { user, logout } = useAuth();
 
   const selected = resolveSelectedKey(loc.pathname);
@@ -132,8 +131,37 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Sider breakpoint="lg" collapsedWidth={0} width={220}>
-        <div style={{ color: "#fff", padding: 16, fontWeight: 600 }}>INNOGREEN 创新绿洲</div>
+      <Sider
+        breakpoint="lg"
+        collapsedWidth={0}
+        width={200}
+        style={{
+          background: "linear-gradient(180deg, #1e3a8a, #1e40af)",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          overflow: "auto",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+            padding: "20px 16px",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <img
+            src="/logo.jpg"
+            alt="INNOGREEN"
+            style={{ width: "100%", maxWidth: 160, height: "auto", borderRadius: 8 }}
+          />
+          <span style={{ color: "#fff", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap" }}>
+            INNOGREEN 创新绿洲
+          </span>
+        </div>
         <Menu
           theme="dark"
           mode="inline"
@@ -141,30 +169,40 @@ export default function AppLayout() {
           openKeys={openKeys}
           onOpenChange={setOpenKeys}
           items={items}
+          style={{ background: "transparent", border: "none" }}
         />
       </Sider>
       <Layout>
         <Header
           style={{
-            background: token.colorBgContainer,
+            background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             paddingInline: 24,
+            color: "#fff",
           }}
         >
-          <Typography.Text type="secondary">运营端</Typography.Text>
+          <Typography.Text style={{ color: "#fff", fontWeight: 600 }}>运营端</Typography.Text>
           <Space>
             {user && (
               <>
-                <Typography.Text>{user.display_name ?? user.username}</Typography.Text>
-                <Tag color={ROLE_TAG[user.role].color}>{ROLE_TAG[user.role].label}</Tag>
+                <Typography.Text style={{ color: "#fff" }}>
+                  {user.display_name ?? user.username}
+                </Typography.Text>
+                <Tag
+                  color={user.role === "admin" ? "red" : user.role === "operator" ? "blue" : "default"}
+                  style={{ borderRadius: 999 }}
+                >
+                  {ROLE_TAG[user.role].label}
+                </Tag>
                 <Button
                   icon={<KeyOutlined />}
                   onClick={() => {
                     pwForm.resetFields();
                     setPwOpen(true);
                   }}
+                  style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff" }}
                 >
                   修改密码
                 </Button>
@@ -176,18 +214,20 @@ export default function AppLayout() {
                 await logout();
                 nav("/login");
               }}
+              style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff" }}
             >
               退出
             </Button>
           </Space>
         </Header>
-        <Content style={{ margin: 16 }}>
+        <Content style={{ margin: 16, background: "#f4f6f8", minHeight: "calc(100vh - 64px)" }}>
           <div
             style={{
-              background: token.colorBgContainer,
+              background: "#fff",
               padding: 16,
-              borderRadius: 8,
+              borderRadius: 12,
               minHeight: 360,
+              border: "1px solid #e5e7eb",
             }}
           >
             <Outlet />

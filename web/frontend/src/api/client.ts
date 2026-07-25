@@ -53,6 +53,19 @@ export async function getMe(): Promise<User | null> {
   }
 }
 
+export async function register(
+  username: string,
+  password: string,
+  displayName?: string,
+): Promise<User> {
+  const r = await api.post<User>("/api/auth/register", {
+    username,
+    password,
+    display_name: displayName,
+  });
+  return r.data;
+}
+
 export type UserCreate = {
   username: string;
   password: string;
@@ -82,6 +95,10 @@ export async function createUser(body: UserCreate): Promise<User> {
 export async function updateUser(id: number, body: UserUpdate): Promise<User> {
   const r = await api.patch<User>(`/api/auth/users/${id}`, body);
   return r.data;
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await api.delete(`/api/auth/users/${id}`);
 }
 
 export async function changePassword(
