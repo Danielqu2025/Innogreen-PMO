@@ -33,24 +33,25 @@ const withSuspense = (node: React.ReactNode) => (
 );
 
 export default function App() {
+  const basename = (import.meta.env.BASE_URL || "/").replace(/\/$/, "") || undefined;
   return (
     <ConfigProvider
       locale={zhCN}
       theme={{
         token: {
-          // 与 qcc 保持一致的配色方案
-          colorPrimary: "#2563eb",
+          colorPrimary: "#0b5fff",
           colorError: "#dc2626",
           colorWarning: "#d97706",
           colorSuccess: "#047857",
-          colorBgBase: "#f4f6f8",
-          colorTextBase: "#1f2937",
-          borderRadius: 8,
-          fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+          colorBgBase: "#ffffff",
+          colorTextBase: "#111827",
+          borderRadius: 4,
+          fontFamily:
+            '"Source Sans 3", "Noto Sans SC", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
         },
       }}
     >
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

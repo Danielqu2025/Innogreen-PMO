@@ -189,8 +189,10 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.pmo_session_secret,
+    session_cookie=settings.pmo_session_cookie_name,
     same_site="lax",
     https_only=settings.pmo_https_only,
+    domain=settings.pmo_session_cookie_domain or None,
     max_age=60 * 60 * 24 * 7,  # 7 天
 )
 

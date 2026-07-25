@@ -1,0 +1,71 @@
+/* 三端共用：顶栏右侧「账号管理 / 退出」——勿各自改，改完请同步到
+ * portal/static/shell-top-actions.css
+ * web/frontend/src/layout/shell-top-actions.css
+ * qcc/static/shell-top-actions.css
+ */
+
+.shell-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-top-actions .shell-top-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  font-family: "Source Sans 3", "Noto Sans SC", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: 22px;
+  cursor: pointer;
+  text-decoration: none;
+  opacity: 0.92;
+  height: 22px;
+  white-space: nowrap;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.shell-top-actions .shell-top-btn:hover,
+.shell-top-actions .shell-top-btn:focus-visible {
+  opacity: 1;
+  color: #fff;
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.shell-top-actions .shell-top-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  line-height: 0;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.shell-top-actions .shell-top-btn-icon svg {
+  width: 1em;
+  height: 1em;
+  display: block;
+  fill: currentColor;
+}

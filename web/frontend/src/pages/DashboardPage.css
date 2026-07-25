@@ -1,0 +1,9 @@
+/* 项目表：完整显示文字，窄屏时底部横向滚动 */
+.dashboard-projects-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dashboard-projects-table .ant-table-cell {
+  white-space: nowrap;
+}

@@ -1,29 +1,32 @@
-import { Layout, Menu, Typography, Button, Tag, Space, Modal, Form, Input } from "antd";
-import {
-  DashboardOutlined,
-  TeamOutlined,
-  NodeIndexOutlined,
-  WarningOutlined,
-  UserOutlined,
-  UnorderedListOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  ExportOutlined,
-  ImportOutlined,
-  KeyOutlined,
-} from "@ant-design/icons";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Layout, Modal, Form, Input, message } from "antd";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { changePassword, type Role } from "../api/client";
+import { api, changePassword, type Role } from "../api/client";
 import logoUrl from "/logo.jpg?url";
+import { ShellHomeIcon, ShellKeyIcon, ShellLogoutIcon } from "./ShellTopIcons";
+import {
+  SideIconCaret,
+  SideIconDashboard,
+  SideIconExport,
+  SideIconImport,
+  SideIconList,
+  SideIconSettings,
+  SideIconStages,
+  SideIconTeam,
+  SideIconUser,
+  SideIconWarning,
+} from "./ShellSideIcons";
+import "./shell-top-actions.css";
+import "./shell-sidebar.css";
+import "./AppLayout.css";
 
-const { Header, Sider, Content } = Layout;
+const { Header } = Layout;
 
-const ROLE_TAG: Record<Role, { color: string; label: string }> = {
-  admin: { color: "red", label: "管理员" },
-  operator: { color: "blue", label: "操作员" },
-  viewer: { color: "default", label: "只读" },
+const ROLE_LABEL: Record<Role, string> = {
+  admin: "管理员",
+  operator: "操作员",
+  viewer: "只读",
 };
 
 function resolveSelectedKey(pathname: string): string {
@@ -43,30 +46,86 @@ const SETTINGS_CHILD_PREFIXES = [
   "/ops/settings",
 ];
 
+function SideLink({
+  to,
+  href,
+  icon,
+  title,
+  sub,
+  active,
+  child,
+  onClick,
+}: {
+  to?: string;
+  href?: string;
+  icon: ReactNode;
+  title: string;
+  sub?: string;
+  active?: boolean;
+  child?: boolean;
+  onClick?: () => void;
+}) {
+  const cls = [
+    "shell-side-link",
+    active ? "is-active" : "",
+    child ? "is-child" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const body = (
+    <>
+      {icon}
+      <span className="shell-side-body">
+        <span className="shell-side-title">{title}</span>
+        {sub ? <em>{sub}</em> : null}
+      </span>
+    </>
+  );
+  if (href) {
+    return (
+      <a className={cls} href={href} target="_blank" rel="noreferrer" onClick={onClick}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <Link className={cls} to={to || "/ops"} onClick={onClick}>
+      {body}
+    </Link>
+  );
+}
+
 export default function AppLayout() {
   const loc = useLocation();
-  const nav = useNavigate();
   const { user, logout } = useAuth();
 
   const selected = resolveSelectedKey(loc.pathname);
   const settingsOpen = SETTINGS_CHILD_PREFIXES.some((p) =>
     loc.pathname.startsWith(p),
   );
-  const [openKeys, setOpenKeys] = useState<string[]>(
-    settingsOpen ? ["settings"] : [],
-  );
+  const [settingsExpanded, setSettingsExpanded] = useState(settingsOpen);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [portalWebUrl, setPortalWebUrl] = useState<string | null>(null);
 
-  // 「修改我的密码」弹窗
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm] = Form.useForm<{ current: string; next: string }>();
   const [pwSubmitting, setPwSubmitting] = useState(false);
 
   useEffect(() => {
-    if (settingsOpen) {
-      setOpenKeys((keys) =>
-        keys.includes("settings") ? keys : [...keys, "settings"],
-      );
-    }
+    api
+      .get<{ enabled: boolean; portal_web_url: string | null }>("/api/auth/sso-status")
+      .then((r) => {
+        setSsoEnabled(!!r.data.enabled);
+        setPortalWebUrl(r.data.portal_web_url);
+      })
+      .catch(() => {
+        setSsoEnabled(false);
+        setPortalWebUrl(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (settingsOpen) setSettingsExpanded(true);
   }, [settingsOpen]);
 
   const onChangePassword = async () => {
@@ -88,153 +147,205 @@ export default function AppLayout() {
     }
   };
 
-  const items = [
-    { key: "/ops", icon: <DashboardOutlined />, label: <Link to="/ops">项目看板</Link> },
-    { key: "/ops/projects", icon: <TeamOutlined />, label: <Link to="/ops/projects">企业详情</Link> },
-    { key: "/ops/stages", icon: <NodeIndexOutlined />, label: <Link to="/ops/stages">阶段地图</Link> },
-    { key: "/ops/pitfalls", icon: <WarningOutlined />, label: <Link to="/ops/pitfalls">避坑指南</Link> },
-    ...(user?.role === "admin" || user?.role === "operator"
-      ? [
-          {
-            key: "settings",
-            icon: <SettingOutlined />,
-            label: "设置",
-            children: [
-              ...(user.role === "admin"
-                ? [
-                    {
-                      key: "/ops/tasks",
-                      icon: <UnorderedListOutlined />,
-                      label: <Link to="/ops/tasks">任务清单</Link>,
-                    },
-                    {
-                      key: "/ops/users",
-                      icon: <UserOutlined />,
-                      label: <Link to="/ops/users">用户管理</Link>,
-                    },
-                  ]
-                : []),
-              {
-                key: "/ops/settings/export",
-                icon: <ExportOutlined />,
-                label: <Link to="/ops/settings/export">数据导出</Link>,
-              },
-              {
-                key: "/ops/settings/import",
-                icon: <ImportOutlined />,
-                label: <Link to="/ops/settings/import">数据导入</Link>,
-              },
-            ],
-          },
-        ]
-      : []),
-  ];
+  const portalAdminUrl = portalWebUrl
+    ? `${portalWebUrl.replace(/\/$/, "")}/admin`
+    : null;
+
+  const canWrite = user?.role === "admin" || user?.role === "operator";
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider
-        breakpoint="lg"
-        collapsedWidth={0}
-        width={200}
-        style={{
-          background: "linear-gradient(180deg, #1e3a8a, #1e40af)",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          overflow: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 10,
-            padding: "20px 16px",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <img
-            src={logoUrl}
-            alt="INNOGREEN"
-            style={{ width: "100%", maxWidth: 160, height: "auto", borderRadius: 8 }}
-          />
-          <span style={{ color: "#fff", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap" }}>
-            INNOGREEN 创新绿洲
+    <Layout className="pmo-shell">
+      <Header className="pmo-topbar">
+        <div className="pmo-brand">
+          <span className="pmo-brand-logo-wrap">
+            <img src={logoUrl} alt="INNOGREEN" />
           </span>
+          <div className="pmo-brand-text">
+            <strong>INNOGREEN 创新绿洲</strong>
+            <span>PMO · 项目管理办公室</span>
+          </div>
         </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[selected]}
-          openKeys={openKeys}
-          onOpenChange={setOpenKeys}
-          items={items}
-          style={{ background: "transparent", border: "none" }}
-        />
-      </Sider>
-      <Layout>
-        <Header
-          style={{
-            background: "linear-gradient(135deg, #1e3a8a, #2563eb)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingInline: 24,
-            color: "#fff",
-          }}
-        >
-          <Typography.Text style={{ color: "#fff", fontWeight: 600 }}>运营端</Typography.Text>
-          <Space>
-            {user && (
-              <>
-                <Typography.Text style={{ color: "#fff" }}>
-                  {user.display_name ?? user.username}
-                </Typography.Text>
-                <Tag
-                  color={user.role === "admin" ? "red" : user.role === "operator" ? "blue" : "default"}
-                  style={{ borderRadius: 999 }}
-                >
-                  {ROLE_TAG[user.role].label}
-                </Tag>
-                <Button
-                  icon={<KeyOutlined />}
-                  onClick={() => {
-                    pwForm.resetFields();
-                    setPwOpen(true);
-                  }}
-                  style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff" }}
-                >
-                  修改密码
-                </Button>
-              </>
-            )}
-            <Button
-              icon={<LogoutOutlined />}
-              onClick={async () => {
-                await logout();
-                nav("/login");
+        <nav className="shell-top-actions" aria-label="账户操作">
+          {user && ssoEnabled && portalWebUrl && (
+            <button
+              type="button"
+              className="shell-top-btn"
+              onClick={() => {
+                window.location.href = portalWebUrl.replace(/\/$/, "");
               }}
-              style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff" }}
             >
-              退出
-            </Button>
-          </Space>
-        </Header>
-        <Content style={{ margin: 16, background: "#f4f6f8", minHeight: "calc(100vh - 64px)" }}>
-          <div
-            style={{
-              background: "#fff",
-              padding: 16,
-              borderRadius: 12,
-              minHeight: 360,
-              border: "1px solid #e5e7eb",
+              <ShellHomeIcon />
+              <span>返回门户</span>
+            </button>
+          )}
+          {user && (
+            <button
+              type="button"
+              className="shell-top-btn"
+              onClick={() => {
+                if (ssoEnabled) {
+                  const url = portalAdminUrl || portalWebUrl;
+                  if (url) window.open(url, "_blank");
+                  else message.info("请在 Portal 管理账号");
+                  return;
+                }
+                pwForm.resetFields();
+                setPwOpen(true);
+              }}
+            >
+              <ShellKeyIcon />
+              <span>
+                {ssoEnabled
+                  ? user.role === "admin"
+                    ? "账号管理"
+                    : "Portal 账号"
+                  : "修改密码"}
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="shell-top-btn"
+            onClick={async () => {
+              await logout();
             }}
           >
+            <ShellLogoutIcon />
+            <span>退出</span>
+          </button>
+        </nav>
+      </Header>
+
+      {/* 与 Portal/qcc 同结构：aside.shell-sidebar（不用 Ant Sider，避免 wrapper 导致账号卡错位） */}
+      <div className="pmo-body">
+        <aside className="shell-sidebar">
+          <div className="shell-sidebar-top">
+            {user && (
+              <div className="shell-user-box">
+                <div className="shell-user-box-name">
+                  {user.display_name ?? user.username}
+                </div>
+                <div className="shell-user-box-meta">
+                  {ROLE_LABEL[user.role]} · @{user.username}
+                </div>
+              </div>
+            )}
+            <div className="shell-sidebar-label">快捷入口</div>
+            <ul className="shell-side-list">
+              <li>
+                <SideLink
+                  to="/ops"
+                  icon={<SideIconDashboard />}
+                  title="项目看板"
+                  active={selected === "/ops"}
+                />
+              </li>
+              <li>
+                <SideLink
+                  to="/ops/projects"
+                  icon={<SideIconTeam />}
+                  title="企业详情"
+                  active={selected === "/ops/projects"}
+                />
+              </li>
+              <li>
+                <SideLink
+                  to="/ops/stages"
+                  icon={<SideIconStages />}
+                  title="阶段地图"
+                  active={selected === "/ops/stages"}
+                />
+              </li>
+              <li>
+                <SideLink
+                  to="/ops/pitfalls"
+                  icon={<SideIconWarning />}
+                  title="避坑指南"
+                  active={selected === "/ops/pitfalls"}
+                />
+              </li>
+              {canWrite && (
+                <li>
+                  <button
+                    type="button"
+                    className={`shell-side-link shell-side-group-toggle${settingsExpanded ? " is-open" : ""}`}
+                    onClick={() => setSettingsExpanded((v) => !v)}
+                  >
+                    <SideIconSettings />
+                    <span className="shell-side-body">
+                      <span className="shell-side-title">设置</span>
+                    </span>
+                    <SideIconCaret />
+                  </button>
+                  <div
+                    className={`shell-side-group-children${settingsExpanded ? " is-open" : ""}`}
+                  >
+                    {user?.role === "admin" && (
+                      <>
+                        <SideLink
+                          to="/ops/tasks"
+                          icon={<SideIconList />}
+                          title="任务清单"
+                          active={selected === "/ops/tasks"}
+                          child
+                        />
+                        {ssoEnabled ? (
+                          portalAdminUrl ? (
+                            <SideLink
+                              href={portalAdminUrl}
+                              icon={<SideIconUser />}
+                              title="账号管理"
+                              child
+                            />
+                          ) : null
+                        ) : (
+                          <SideLink
+                            to="/ops/users"
+                            icon={<SideIconUser />}
+                            title="用户管理"
+                            active={selected === "/ops/users"}
+                            child
+                          />
+                        )}
+                      </>
+                    )}
+                    <SideLink
+                      to="/ops/settings/export"
+                      icon={<SideIconExport />}
+                      title="数据导出"
+                      active={selected === "/ops/settings/export"}
+                      child
+                    />
+                    <SideLink
+                      to="/ops/settings/import"
+                      icon={<SideIconImport />}
+                      title="数据导入"
+                      active={selected === "/ops/settings/import"}
+                      child
+                    />
+                  </div>
+                </li>
+              )}
+            </ul>
+          </div>
+          <div className="shell-sidebar-bottom">
+            <div className="shell-notice">
+              <strong>统一身份</strong>
+              一次登录，访问你被授权的全部 INNOGREEN 应用。权限由门户管理员统一配置。
+            </div>
+            <div className="shell-side-foot">
+              上海国际化工新材料创新中心
+              <br />
+              Shanghai International Chemical New Materials Innovation Center
+            </div>
+          </div>
+        </aside>
+        <main className="pmo-content">
+          <div className="pmo-panel">
             <Outlet />
           </div>
-        </Content>
-      </Layout>
+        </main>
+      </div>
 
       <Modal
         title="修改我的密码"

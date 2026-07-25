@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     pmo_cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     # 会话 cookie 是否仅 HTTPS（生产 HTTPS 反代后设 true）
     pmo_https_only: bool = False
+    # 会话 cookie 名（须与 Portal SESSION_COOKIE_NAME 一致，同域 SSO）
+    pmo_session_cookie_name: str = "innogreen_session"
+    # 可选：跨子域共享时设为 .example.com；同域路径路由请留空
+    pmo_session_cookie_domain: str = ""
+    # 公网路径前缀（同域 nginx /pmo/ 部署时设为 /pmo；本地开发留空）
+    pmo_public_base: str = ""
     # 是否信任代理头解析真实 IP（X-Forwarded-For / CF-Connecting-IP）。
     # 默认 false：直接对外时客户端可伪造 XFF 绕过 IP 限速。
     # 仅在可信反向代理（nginx / Cloudflare Tunnel）后设 true。
@@ -39,6 +45,11 @@ class Settings(BaseSettings):
     # qcc 企业资质库路径（用于方案一：直接 ATTACH qcc 数据库只读查询）
     # 同机部署时设为 qcc 的 data/qualifications.db 绝对路径，留空则禁用 qcc 关联功能
     pmo_qcc_db_path: str = ""
+    # 统一认证 Portal 基址。非空则启用 SSO：登录/验会话走 Portal（须与 Portal 共用同一会话密钥）。
+    # 例：http://127.0.0.1:8001 ；留空则使用本地 users 表（pytest / 单机兜底）。
+    pmo_portal_base_url: str = ""
+    # Portal 前端入口（登录页提示/跳转用；可与 API 同域不同路径）
+    pmo_portal_web_url: str = ""
 
     @field_validator("pmo_session_secret")
     @classmethod

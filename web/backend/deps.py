@@ -1,9 +1,9 @@
 """鉴权依赖 - Phase C（会话 cookie + 三角色）
 
-- get_current_user：从签名会话 cookie 取 user_id，每请求重查 User（角色变更/禁用实时生效）。
-- require_role(*roles)：角色门禁工厂。
-- CurrentUser / WriteUser / AdminUser：Annotated 别名，签名处一眼可见权限，降低"忘加门禁"风险。
+- 本地模式（默认）：签名 cookie → 查本地 users 表
+- SSO 模式（PMO_PORTAL_BASE_URL 非空）：转发 cookie 调 Portal verify-session?app=PMO
 """
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -11,23 +11,50 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
+from services import portal_auth
 
 ROLES = ("admin", "operator", "viewer")
 
 
-def escape_like(value: str) -> str:
-    """转义 LIKE 通配符与转义字符自身。
+@dataclass
+class AuthUser:
+    """当前用户（本地 ORM 或 Portal SSO 统一为此结构）。"""
 
-    SQLite 的 LIKE 运算符：% 匹配任意序列，_ 匹配单字符。
-    用户在搜索框输入 `%` 或 `_` 会导致模糊匹配范围扩大或绕过精确匹配
-    （如搜 `ENT-01_` 会同时命中 ENT-010/ENT-011...）。
-    配合 SQLAlchemy 的 `.like(..., escape='\\\\')` 使用，转义符约定为反斜杠。
-    """
+    user_id: int
+    username: str
+    display_name: str | None
+    role: str
+    is_active: bool = True
+    created_at: str | None = None
+
+
+def escape_like(value: str) -> str:
+    """转义 LIKE 通配符与转义字符自身。"""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    """会话 cookie → User。未登录 / 用户不存在 / 已禁用均返回 401（让前端登出）。"""
+def _from_orm(user: User) -> AuthUser:
+    return AuthUser(
+        user_id=user.user_id,
+        username=user.username,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=bool(user.is_active),
+        created_at=user.created_at,
+    )
+
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> AuthUser:
+    """未登录 / 无 PMO 授权 / 已禁用 → 401。"""
+    if portal_auth.portal_enabled():
+        data = portal_auth.verify_session(request)
+        if data is None:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                detail={"error": True, "code": "ERR_UNAUTHORIZED", "message": "未登录"},
+            )
+        return AuthUser(**data)
+
     user_id = request.session.get("user_id")
     if user_id is None:
         raise HTTPException(
@@ -36,19 +63,18 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         )
     user = db.get(User, user_id)
     if user is None or user.is_active != 1:
-        # 账号被删/被禁：清掉本地会话 + 401，前端拦截器会踢回登录页
         request.session.clear()
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail={"error": True, "code": "ERR_UNAUTHORIZED", "message": "账号已禁用或不存在"},
         )
-    return user
+    return _from_orm(user)
 
 
 def require_role(*roles: str):
-    """角色门禁工厂：角色不在白名单 → 403（注意是 403，区别于 401 未登录）。"""
+    """角色门禁工厂：角色不在白名单 → 403。"""
 
-    def _dependency(user: User = Depends(get_current_user)) -> User:
+    def _dependency(user: AuthUser = Depends(get_current_user)) -> AuthUser:
         if user.role not in roles:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
@@ -59,6 +85,6 @@ def require_role(*roles: str):
     return _dependency
 
 
-CurrentUser = Annotated[User, Depends(get_current_user)]
-WriteUser = Annotated[User, Depends(require_role("admin", "operator"))]
-AdminUser = Annotated[User, Depends(require_role("admin"))]
+CurrentUser = Annotated[AuthUser, Depends(get_current_user)]
+WriteUser = Annotated[AuthUser, Depends(require_role("admin", "operator"))]
+AdminUser = Annotated[AuthUser, Depends(require_role("admin"))]

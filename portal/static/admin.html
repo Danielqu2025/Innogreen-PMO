@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账号管理 - INNOGREEN 统一门户</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/shell-top-actions.css">
+  <style>
+    :root {
+      --mit-blue: #0b2b5b;
+      --font: "Source Sans 3", "Noto Sans SC", system-ui, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font);
+      background: #f4f6f8;
+      min-height: 100vh;
+      color: #1f2937;
+    }
+    .topbar {
+      background: var(--mit-blue);
+      color: #fff;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #fff;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .brand:hover { text-decoration: none; opacity: 0.95; }
+    .brand-logo-wrap {
+      height: 52px;
+      max-width: 220px;
+      border-radius: 15px;
+      overflow: hidden;
+      background: #fff;
+      flex-shrink: 0;
+      line-height: 0;
+    }
+    .brand-logo-wrap img {
+      height: 52px;
+      width: auto;
+      max-width: 220px;
+      object-fit: contain;
+      object-position: left center;
+      display: block;
+      border: 0;
+    }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+    .brand-text strong {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      color: #fff;
+    }
+    @media (max-width: 720px) {
+      .topbar { padding: 0 16px; height: 64px; }
+      .brand-logo-wrap,
+      .brand-logo-wrap img { height: 44px; max-width: 160px; }
+      .brand-text strong { font-size: 19px; }
+    }
+    .wrap { max-width: 1180px; margin: 24px auto; padding: 0 16px 40px; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .stat .label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    .stat .value { font-size: 22px; font-weight: 700; color: #1e3a5f; }
+    .stat.warn .value { color: #d97706; }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 16px;
+    }
+    .tab {
+      border: none;
+      background: transparent;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #6b7280;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab:hover { color: #2563eb; }
+    .tab.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+    .tab .count {
+      display: inline-block;
+      min-width: 18px;
+      padding: 0 6px;
+      margin-left: 4px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #b45309;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    th { color: #6b7280; font-weight: 600; font-size: 12px; white-space: nowrap; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #eef2ff;
+      color: #2563eb;
+      margin: 2px 4px 2px 0;
+    }
+    .badge.off { background: #f3f4f6; color: #9ca3af; }
+    .badge.danger { background: #fee2e2; color: #dc2626; }
+    .badge.ok { background: #d1fae5; color: #047857; }
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.2;
+      background: #2563eb;
+      color: #fff;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn.ghost { background: #fff; color: #374151; border-color: #d1d5db; }
+    .btn.ghost:hover { background: #f9fafb; border-color: #9ca3af; }
+    .btn.danger { background: #fff; color: #dc2626; border-color: #f0b4b4; }
+    .btn.danger:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn.sm { padding: 5px 12px; font-size: 12.5px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .toolbar input, .toolbar select {
+      width: auto;
+      min-width: 140px;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      background: #fff;
+    }
+    .toolbar input.search { min-width: 200px; flex: 1; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .msg { margin-top: 10px; font-size: 13px; }
+    .msg.err { color: #dc2626; }
+    .msg.ok { color: #047857; }
+    .hidden { display: none !important; }
+    .actions { white-space: nowrap; }
+    .actions button { margin-right: 6px; margin-bottom: 4px; }
+    .empty { padding: 28px; text-align: center; color: #9ca3af; font-size: 14px; }
+
+    /* Modal */
+    .backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, .45);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 480px;
+      padding: 22px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.2);
+    }
+    .modal h2 { font-size: 17px; margin-bottom: 4px; }
+    .modal .foot { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-logo-wrap">
+        <img src="/static/logo.jpg" alt="INNOGREEN">
+      </span>
+      <div class="brand-text">
+        <strong>INNOGREEN 创新绿洲</strong>
+      </div>
+    </a>
+    <nav class="shell-top-actions" aria-label="账户操作">
+      <a class="shell-top-btn" href="/">
+        <span class="shell-top-btn-icon" aria-hidden="true"><svg viewBox="64 64 896 896" focusable="false"><path d="M946.5 505L534.6 76.3c-6.3-6.4-15-9.9-24.1-9.9h-.1c-9.1 0-17.8 3.5-24.2 9.9L77.5 505a63.9 63.9 0 00-18.8 46c.4 35.2 29.7 63.3 64.9 63.3h42.5V940h695.4V614.3h43.4c17.1 0 33.2-6.7 45.3-18.8a63.6 63.6 0 0018.7-45.3c0-17-6.7-33.1-18.8-45.2zM568 868H456V664h112v204zm217.9-325.7V868H632V640c0-22.1-17.9-40-40-40H433c-22.1 0-40 17.9-40 40v228H238.1V542.3h-96l370-369.7 23.1 23.1L882 542.3h-96.1z"/></svg></span>
+        <span>返回门户</span>
+      </a>
+      <button type="button" class="shell-top-btn" onclick="logout()">
+        <span class="shell-top-btn-icon" aria-hidden="true"><svg viewBox="64 64 896 896" focusable="false"><path d="M868 732h-70.3c-4.8 0-9.3 2.1-12.3 5.8-7 8.5-14.5 16.7-22.4 24.5a353.84 353.84 0 01-112.7 75.9A352.8 352.8 0 01512.4 866c-47.9 0-94.3-9.4-137.9-27.8a353.84 353.84 0 01-112.7-75.9 353.28 353.28 0 01-76-112.5C167.3 606.2 158 559.9 158 512s9.4-94.2 27.8-137.8c17.8-42.1 43.4-80 76-112.5s70.5-58.1 112.7-75.9c43.6-18.4 90-27.8 137.9-27.8 47.9 0 94.3 9.3 137.9 27.8 42.2 17.8 80.1 43.4 112.7 75.9 7.9 7.9 15.3 16.1 22.4 24.5 3 3.7 7.6 5.8 12.3 5.8H868c6.3 0 10.2-7 6.7-12.3C798 160.5 663.8 81.6 511.3 82 271.7 82.6 79.6 277.1 82 516.4 84.4 751.9 276.2 942 512.4 942c152.1 0 285.7-78.8 362.3-197.7 3.4-5.3-.4-12.3-6.7-12.3zm88.9-226.3L815 393.7c-5.3-4.2-13-.4-13 6.3v76H488c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h314v76c0 6.7 7.8 10.5 13 6.3l141.9-112a8 8 0 000-12.6z"/></svg></span>
+        <span>退出</span>
+      </button>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="stats" id="stats"></div>
+
+    <div class="card">
+      <h1>统一账号</h1>
+      <p class="muted" style="margin-bottom:16px">管理用户身份，并授予 PMO / qcc / sh_eia 应用角色。无应用授权则无法进入对应系统。</p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="users" onclick="switchTab('users')">用户</button>
+        <button class="tab" data-tab="pending" onclick="switchTab('pending')">待授权<span class="count" id="pending-count">0</span></button>
+        <button class="tab" data-tab="audit" onclick="switchTab('audit')">审计日志</button>
+      </div>
+
+      <!-- 用户 Tab -->
+      <div id="panel-users">
+        <div class="toolbar">
+          <button class="btn" onclick="toggleCreate()">新建用户</button>
+          <button class="btn ghost" onclick="reload()">刷新</button>
+          <input class="search" id="f-q" placeholder="搜索用户名 / 显示名" oninput="renderUsers()">
+          <select id="f-status" onchange="renderUsers()">
+            <option value="">全部状态</option>
+            <option value="1">启用</option>
+            <option value="0">停用</option>
+          </select>
+          <select id="f-role" onchange="renderUsers()">
+            <option value="">全部门户角色</option>
+            <option value="admin">管理员</option>
+            <option value="viewer">访客</option>
+          </select>
+        </div>
+
+        <div id="create-box" class="hidden" style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:14px;background:#f9fafb">
+          <strong style="font-size:14px">新建用户</strong>
+          <div class="form-grid">
+            <div>
+              <label>用户名</label>
+              <input id="c-username" autocomplete="off">
+            </div>
+            <div>
+              <label>显示名</label>
+              <input id="c-display">
+            </div>
+            <div>
+              <label>密码（≥8 位）</label>
+              <input id="c-password" type="password">
+            </div>
+            <div>
+              <label>门户角色</label>
+              <select id="c-role">
+                <option value="viewer">访客</option>
+                <option value="admin">门户管理员</option>
+              </select>
+            </div>
+            <div>
+              <label>PMO 角色</label>
+              <select id="c-pmo">
+                <option value="">不开通</option>
+                <option value="viewer">viewer</option>
+                <option value="operator">operator</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+            <div>
+              <label>qcc 角色</label>
+              <select id="c-qcc">
+                <option value="">不开通</option>
+                <option value="viewer">viewer</option>
+                <option value="operator">operator</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+            <div>
+              <label>sh_eia 角色</label>
+              <select id="c-sh_eia">
+                <option value="">不开通</option>
+                <option value="viewer">viewer</option>
+                <option value="operator">operator</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" onclick="createUser()">创建</button>
+            <button class="btn ghost" onclick="toggleCreate()">取消</button>
+          </div>
+          <div id="create-msg" class="msg"></div>
+        </div>
+
+        <div id="users-msg" class="msg" style="margin-top:0;margin-bottom:8px"></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>门户角色</th>
+                <th>应用授权</th>
+                <th>状态</th>
+                <th>登录次数</th>
+                <th>最后登录</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-users"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 待授权 Tab -->
+      <div id="panel-pending" class="hidden">
+        <p class="muted" style="margin-bottom:12px">以下用户尚无任何有效应用授权，无法进入 PMO / qcc / sh_eia。为其开通角色后即可访问。</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>门户角色</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-pending"></tbody>
+          </table>
+        </div>
+        <div id="pending-empty" class="empty hidden">暂无待授权用户</div>
+      </div>
+
+      <!-- 审计 Tab -->
+      <div id="panel-audit" class="hidden">
+        <div class="toolbar">
+          <button class="btn ghost" onclick="loadAudit()">刷新</button>
+          <select id="f-audit-action" onchange="renderAudit()">
+            <option value="">全部动作</option>
+            <option value="LOGIN">LOGIN</option>
+            <option value="CREATE">CREATE</option>
+            <option value="UPDATE">UPDATE</option>
+            <option value="DELETE">DELETE</option>
+            <option value="UPSERT">UPSERT</option>
+            <option value="REVOKE">REVOKE</option>
+          </select>
+        </div>
+        <div id="audit-msg" class="msg" style="margin-top:0;margin-bottom:8px"></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>操作者</th>
+                <th>动作</th>
+                <th>资源</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-audit"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑弹窗 -->
+  <div id="edit-backdrop" class="backdrop hidden">
+    <div class="modal">
+      <h2>编辑用户</h2>
+      <p class="muted" id="edit-sub" style="margin-bottom:12px"></p>
+      <input type="hidden" id="e-id">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div>
+          <label>显示名</label>
+          <input id="e-display">
+        </div>
+        <div>
+          <label>门户角色</label>
+          <select id="e-role">
+            <option value="viewer">访客</option>
+            <option value="admin">门户管理员</option>
+          </select>
+        </div>
+      </div>
+      <div id="edit-msg" class="msg"></div>
+      <div class="foot">
+        <button class="btn ghost" onclick="closeEdit()">取消</button>
+        <button class="btn" onclick="saveEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 授权弹窗 -->
+  <div id="grant-backdrop" class="backdrop hidden">
+    <div class="modal">
+      <h2>应用授权</h2>
+      <p class="muted" id="grant-sub" style="margin-bottom:12px"></p>
+      <input type="hidden" id="g-id">
+      <div class="form-grid" style="grid-template-columns:repeat(3, 1fr)">
+        <div>
+          <label>PMO 角色</label>
+          <select id="g-pmo">
+            <option value="">不开通</option>
+            <option value="viewer">viewer</option>
+            <option value="operator">operator</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div>
+          <label>qcc 角色</label>
+          <select id="g-qcc">
+            <option value="">不开通</option>
+            <option value="viewer">viewer</option>
+            <option value="operator">operator</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div>
+          <label>sh_eia 角色</label>
+          <select id="g-sh_eia">
+            <option value="">不开通</option>
+            <option value="viewer">viewer</option>
+            <option value="operator">operator</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+      </div>
+      <div id="grant-msg" class="msg"></div>
+      <div class="foot">
+        <button class="btn ghost" onclick="closeGrant()">取消</button>
+        <button class="btn" onclick="saveGrant()">保存授权</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const APP_CODES = ['PMO', 'qcc', 'sh_eia'];
+    const ROLE_LABEL = { admin: '管理员', viewer: '访客', operator: '操作员' };
+    let me = null;
+    let allUsers = [];
+    let auditLogs = [];
+    let currentTab = 'users';
+
+    async function api(path, opts = {}) {
+      const r = await fetch(path, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        ...opts,
+      });
+      const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
+      if (r.status === 401) {
+        location.href = '/login';
+        throw new Error('未登录');
+      }
+      if (r.status === 403) throw new Error('需要门户管理员权限');
+      if (!r.ok) {
+        const d = data.detail;
+        throw new Error(typeof d === 'string' ? d : (d?.message || '请求失败'));
+      }
+      return data;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso.slice(0, 19).replace('T', ' ');
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function hasActiveMembership(u) {
+      return (u.memberships || []).some(m => m.is_active);
+    }
+
+    function isSelf(userId) {
+      return me && me.user_id === userId;
+    }
+
+    function membershipBadges(ms) {
+      if (!ms?.length) return '<span class="badge off">无应用授权</span>';
+      const active = ms.filter(m => m.is_active);
+      if (!active.length) return '<span class="badge off">无应用授权</span>';
+      return active.map(m =>
+        `<span class="badge">${escapeHtml(m.app_code)}:${escapeHtml(m.role)}</span>`
+      ).join('');
+    }
+
+    function switchTab(name) {
+      currentTab = name;
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === name);
+      });
+      document.getElementById('panel-users').classList.toggle('hidden', name !== 'users');
+      document.getElementById('panel-pending').classList.toggle('hidden', name !== 'pending');
+      document.getElementById('panel-audit').classList.toggle('hidden', name !== 'audit');
+      if (name === 'audit' && !auditLogs.length) loadAudit();
+      if (name === 'pending') renderPending();
+    }
+
+    function renderStats() {
+      const total = allUsers.length;
+      const active = allUsers.filter(u => u.is_active).length;
+      const inactive = total - active;
+      const admins = allUsers.filter(u => u.role === 'admin' && u.is_active).length;
+      const pending = allUsers.filter(u => u.is_active && !hasActiveMembership(u)).length;
+      document.getElementById('stats').innerHTML = `
+        <div class="stat"><div class="label">用户总数</div><div class="value">${total}</div></div>
+        <div class="stat"><div class="label">启用</div><div class="value">${active}</div></div>
+        <div class="stat"><div class="label">停用</div><div class="value">${inactive}</div></div>
+        <div class="stat"><div class="label">门户管理员</div><div class="value">${admins}</div></div>
+        <div class="stat warn"><div class="label">待授权</div><div class="value">${pending}</div></div>
+      `;
+      document.getElementById('pending-count').textContent = String(pending);
+    }
+
+    function filteredUsers() {
+      const q = (document.getElementById('f-q').value || '').trim().toLowerCase();
+      const status = document.getElementById('f-status').value;
+      const role = document.getElementById('f-role').value;
+      return allUsers.filter(u => {
+        if (status !== '' && String(+!!u.is_active) !== status) return false;
+        if (role && u.role !== role) return false;
+        if (q) {
+          const hay = `${u.username} ${u.display_name || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function userActionButtons(u) {
+      const self = isSelf(u.user_id);
+      const disableSelf = self ? 'disabled title="不能对自己执行此操作"' : '';
+      return `
+        <button class="btn ghost sm" onclick='openEdit(${JSON.stringify(u)})'>编辑</button>
+        <button class="btn ghost sm" onclick='openGrant(${u.user_id}, ${JSON.stringify(u.username)}, ${JSON.stringify(u.memberships || [])})'>授权</button>
+        <button class="btn ghost sm" ${disableSelf} onclick="toggleActive(${u.user_id}, ${u.is_active ? 'false' : 'true'})">${u.is_active ? '停用' : '启用'}</button>
+        <button class="btn ghost sm" onclick="resetPassword(${u.user_id})">重置密码</button>
+        <button class="btn danger sm" ${disableSelf} onclick='deleteUser(${u.user_id}, ${JSON.stringify(u.username)})'>删除</button>
+      `;
+    }
+
+    function renderUsers() {
+      const list = filteredUsers();
+      const tb = document.getElementById('tbody-users');
+      document.getElementById('users-msg').textContent = `显示 ${list.length} / ${allUsers.length} 个用户`;
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="empty">没有匹配的用户</td></tr>';
+        return;
+      }
+      tb.innerHTML = list.map(u => `
+        <tr>
+          <td>
+            <strong>${escapeHtml(u.display_name || u.username)}</strong>
+            ${isSelf(u.user_id) ? '<span class="badge ok">我</span>' : ''}<br>
+            <span class="muted">@${escapeHtml(u.username)} · #${u.user_id}</span>
+          </td>
+          <td><span class="badge">${ROLE_LABEL[u.role] || escapeHtml(u.role)}</span></td>
+          <td>${membershipBadges(u.memberships)}</td>
+          <td>${u.is_active ? '<span class="badge ok">启用</span>' : '<span class="badge danger">停用</span>'}</td>
+          <td>${u.login_count ?? 0}</td>
+          <td class="muted">${fmtTime(u.last_login_at)}</td>
+          <td class="actions">${userActionButtons(u)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderPending() {
+      const list = allUsers.filter(u => u.is_active && !hasActiveMembership(u));
+      const tb = document.getElementById('tbody-pending');
+      const empty = document.getElementById('pending-empty');
+      if (!list.length) {
+        tb.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      tb.innerHTML = list.map(u => `
+        <tr>
+          <td>
+            <strong>${escapeHtml(u.display_name || u.username)}</strong><br>
+            <span class="muted">@${escapeHtml(u.username)}</span>
+          </td>
+          <td><span class="badge">${ROLE_LABEL[u.role] || escapeHtml(u.role)}</span></td>
+          <td><span class="badge ok">启用</span></td>
+          <td class="muted">${fmtTime(u.created_at)}</td>
+          <td class="actions">
+            <button class="btn sm" onclick='openGrant(${u.user_id}, ${JSON.stringify(u.username)}, ${JSON.stringify(u.memberships || [])})'>授权</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadAudit() {
+      const msg = document.getElementById('audit-msg');
+      msg.textContent = '加载中…';
+      msg.className = 'msg';
+      try {
+        auditLogs = await api('/api/auth/audit?limit=100');
+        renderAudit();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    function renderAudit() {
+      const action = document.getElementById('f-audit-action').value;
+      const list = action ? auditLogs.filter(l => l.action === action) : auditLogs;
+      document.getElementById('audit-msg').textContent = `共 ${list.length} 条记录`;
+      document.getElementById('audit-msg').className = 'msg';
+      const tb = document.getElementById('tbody-audit');
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="5" class="empty">暂无审计记录</td></tr>';
+        return;
+      }
+      tb.innerHTML = list.map(l => `
+        <tr>
+          <td class="muted">${fmtTime(l.created_at)}</td>
+          <td>${escapeHtml(l.actor)}</td>
+          <td><span class="badge">${escapeHtml(l.action)}</span></td>
+          <td>${escapeHtml(l.resource)}${l.resource_id != null ? ' #' + l.resource_id : ''}</td>
+          <td class="muted">${escapeHtml(l.ip_address || '—')}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function reload() {
+      const msg = document.getElementById('users-msg');
+      msg.textContent = '加载中…';
+      msg.className = 'msg';
+      try {
+        allUsers = await api('/api/auth/users');
+        renderStats();
+        renderUsers();
+        if (currentTab === 'pending') renderPending();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    function toggleCreate() {
+      document.getElementById('create-box').classList.toggle('hidden');
+    }
+
+    async function createUser() {
+      const msg = document.getElementById('create-msg');
+      msg.textContent = '';
+      const memberships = [];
+      APP_CODES.forEach(code => {
+        const role = document.getElementById(`c-${code === 'PMO' ? 'pmo' : code}`).value;
+        if (role) memberships.push({ app_code: code, role, is_active: true });
+      });
+      try {
+        await api('/api/auth/users', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: document.getElementById('c-username').value.trim(),
+            display_name: document.getElementById('c-display').value.trim() || null,
+            password: document.getElementById('c-password').value,
+            role: document.getElementById('c-role').value,
+            memberships,
+          }),
+        });
+        msg.textContent = '已创建';
+        msg.className = 'msg ok';
+        document.getElementById('c-username').value = '';
+        document.getElementById('c-display').value = '';
+        document.getElementById('c-password').value = '';
+        toggleCreate();
+        reload();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    function openEdit(u) {
+      document.getElementById('e-id').value = u.user_id;
+      document.getElementById('e-display').value = u.display_name || '';
+      document.getElementById('e-role').value = u.role || 'viewer';
+      document.getElementById('edit-sub').textContent = `@${u.username}`;
+      document.getElementById('edit-msg').textContent = '';
+      const roleSel = document.getElementById('e-role');
+      roleSel.disabled = isSelf(u.user_id);
+      document.getElementById('edit-backdrop').classList.remove('hidden');
+    }
+
+    function closeEdit() {
+      document.getElementById('edit-backdrop').classList.add('hidden');
+    }
+
+    async function saveEdit() {
+      const userId = Number(document.getElementById('e-id').value);
+      const msg = document.getElementById('edit-msg');
+      const role = document.getElementById('e-role').value;
+      if (isSelf(userId) && role !== me.role) {
+        msg.textContent = '不能修改自己的门户角色';
+        msg.className = 'msg err';
+        return;
+      }
+      try {
+        await api(`/api/auth/users/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            display_name: document.getElementById('e-display').value.trim() || null,
+            role,
+          }),
+        });
+        closeEdit();
+        reload();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    function openGrant(userId, username, memberships) {
+      const cur = {};
+      (memberships || []).forEach(m => {
+        if (m.is_active) cur[m.app_code] = m.role;
+      });
+      document.getElementById('g-id').value = userId;
+      document.getElementById('grant-sub').textContent = `@${username}`;
+      APP_CODES.forEach(code => {
+        document.getElementById(`g-${code === 'PMO' ? 'pmo' : code}`).value = cur[code] || '';
+      });
+      document.getElementById('grant-msg').textContent = '';
+      document.getElementById('grant-backdrop').classList.remove('hidden');
+    }
+
+    function closeGrant() {
+      document.getElementById('grant-backdrop').classList.add('hidden');
+    }
+
+    async function saveGrant() {
+      const userId = Number(document.getElementById('g-id').value);
+      const msg = document.getElementById('grant-msg');
+      const u = allUsers.find(x => x.user_id === userId);
+      const cur = {};
+      (u?.memberships || []).forEach(m => { cur[m.app_code] = m; });
+      try {
+        for (const code of APP_CODES) {
+          const role = document.getElementById(`g-${code === 'PMO' ? 'pmo' : code}`).value;
+          if (role) {
+            await api(`/api/auth/users/${userId}/memberships`, {
+              method: 'PUT',
+              body: JSON.stringify({ app_code: code, role, is_active: true }),
+            });
+          } else if (cur[code]) {
+            await api(`/api/auth/users/${userId}/memberships/${code}`, { method: 'DELETE' });
+          }
+        }
+        closeGrant();
+        await reload();
+        if (currentTab === 'pending') renderPending();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    async function toggleActive(userId, active) {
+      if (isSelf(userId) && !active) {
+        alert('不能停用自己的账号');
+        return;
+      }
+      if (!confirm(active ? '启用该账号？' : '停用该账号？')) return;
+      try {
+        await api(`/api/auth/users/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ is_active: active }),
+        });
+        reload();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function resetPassword(userId) {
+      const password = prompt('输入新密码（至少 8 位）');
+      if (!password) return;
+      try {
+        await api(`/api/auth/users/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ password }),
+        });
+        alert('密码已重置');
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function deleteUser(userId, username) {
+      if (isSelf(userId)) {
+        alert('不能删除自己的账号');
+        return;
+      }
+      if (!confirm(`确定删除账号「${username}」？删除后将无法登录。`)) return;
+      try {
+        await api(`/api/auth/users/${userId}`, { method: 'DELETE' });
+        reload();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      location.href = '/login';
+    }
+
+    // close modal on backdrop click
+    document.getElementById('edit-backdrop').addEventListener('click', (e) => {
+      if (e.target.id === 'edit-backdrop') closeEdit();
+    });
+    document.getElementById('grant-backdrop').addEventListener('click', (e) => {
+      if (e.target.id === 'grant-backdrop') closeGrant();
+    });
+
+    (async () => {
+      try {
+        me = await api('/api/auth/me');
+        if (me.role !== 'admin') {
+          document.body.innerHTML = '<div class="wrap"><div class="card">仅门户管理员可访问。<a href="/">返回</a></div></div>';
+          return;
+        }
+        await reload();
+      } catch (e) {
+        document.body.innerHTML = `<div class="wrap"><div class="card">${escapeHtml(e.message)} <a href="/login">去登录</a></div></div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

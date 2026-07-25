@@ -6,8 +6,10 @@ import {
   type ReactNode,
 } from "react";
 import {
+  fetchSsoStatus,
   getMe,
   login as apiLogin,
+  loginRedirectUrl,
   logout as apiLogout,
   type User,
 } from "../api/client";
@@ -17,6 +19,8 @@ type AuthState = {
   loading: boolean;
   /** admin / operator 可写；viewer 只读 */
   canWrite: boolean;
+  ssoEnabled: boolean;
+  portalLoginUrl: string | null;
   login: (username: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 };
@@ -26,12 +30,27 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [portalLoginUrl, setPortalLoginUrl] = useState<string | null>(null);
 
-  // 挂载时探测会话：/me 200 → 已登录；401 → null（未登录）
+  // 先探 SSO，再探会话（未登录时 SSO 跳 Portal）
   useEffect(() => {
-    getMe()
-      .then(setUser)
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      const sso = await fetchSsoStatus();
+      if (cancelled) return;
+      setSsoEnabled(sso.enabled);
+      setPortalLoginUrl(sso.portal_login_url);
+      try {
+        const me = await getMe();
+        if (!cancelled) setUser(me);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -43,12 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await apiLogout();
     setUser(null);
+    window.location.href = loginRedirectUrl();
   };
 
   const canWrite = user?.role === "admin" || user?.role === "operator";
 
   return (
-    <AuthContext.Provider value={{ user, loading, canWrite, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, canWrite, ssoEnabled, portalLoginUrl, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

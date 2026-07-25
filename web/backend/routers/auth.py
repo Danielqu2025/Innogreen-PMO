@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from deps import ROLES, AdminUser, CurrentUser
+from deps import ROLES, AdminUser, AuthUser, CurrentUser
 from models import AuditLog, User
 from rate_limit import get_real_ip, limiter
 from schemas import (
@@ -29,6 +29,7 @@ from schemas import (
     UserUpdate,
 )
 from security import hash_password, verify_password
+from services import portal_auth
 from services.audit import (
     log_login,
     log_user_create,
@@ -49,14 +50,22 @@ def _err(code: int, msg: str, biz: str) -> HTTPException:
     return HTTPException(code, detail={"error": True, "code": biz, "message": msg})
 
 
-def _user_out(u: User) -> UserOut:
+def _user_out(u: User | AuthUser) -> UserOut:
     return UserOut(
         user_id=u.user_id,
         username=u.username,
         display_name=u.display_name,
         role=u.role,
         is_active=bool(u.is_active),
-        created_at=u.created_at,
+        created_at=getattr(u, "created_at", None),
+    )
+
+
+def _sso_user_mgmt_disabled() -> HTTPException:
+    return _err(
+        501,
+        "已启用统一认证，请在 Portal 管理用户与授权",
+        "ERR_SSO_USER_MGMT",
     )
 
 
@@ -83,6 +92,40 @@ def login(
 ) -> UserOut:
     ip = _client_ip(request)
     ua = request.headers.get("user-agent")
+
+    # SSO：代理到 Portal，cookie 由 Portal 签发
+    if portal_auth.portal_enabled():
+        try:
+            data = portal_auth.proxy_login(body.username.strip(), body.password, response)
+        except HTTPException as e:
+            if e.status_code == 401:
+                log_login(
+                    db,
+                    body.username.strip() or "?",
+                    success=False,
+                    ip_address=ip,
+                    user_agent=ua,
+                )
+                db.commit()
+            raise
+        log_login(
+            db,
+            data["username"],
+            success=True,
+            user_id=data["user_id"],
+            ip_address=ip,
+            user_agent=ua,
+        )
+        db.commit()
+        return UserOut(
+            user_id=data["user_id"],
+            username=data["username"],
+            display_name=data.get("display_name"),
+            role=data["role"],
+            is_active=True,
+            created_at=data.get("created_at"),
+        )
+
     user = db.execute(
         select(User).where(User.username == body.username)
     ).scalar_one_or_none()
@@ -116,7 +159,9 @@ def login(
 
 
 @router.post("/logout")
-def logout(request: Request) -> dict:
+def logout(request: Request, response: Response) -> dict:
+    if portal_auth.portal_enabled():
+        portal_auth.proxy_logout(request, response)
     request.session.clear()
     return {"ok": True}
 
@@ -129,7 +174,10 @@ def register(
     body: RegisterIn,
     db: Session = Depends(get_db),
 ) -> UserOut:
-    """普通用户自助注册，默认 viewer 角色（只读）。"""
+    """普通用户自助注册，默认 viewer 角色（只读）。SSO 模式下请走 Portal。"""
+    if portal_auth.portal_enabled():
+        raise _err(501, "已启用统一认证，请前往 Portal 注册", "ERR_SSO_REGISTER")
+
     username = body.username.strip()
 
     # 检查用户名是否已存在
@@ -178,6 +226,22 @@ def me(user: CurrentUser) -> UserOut:
     return _user_out(user)
 
 
+@router.get("/sso-status")
+def sso_status() -> dict:
+    """前端探测是否启用统一认证（无需登录）。"""
+    from config import get_settings
+
+    settings = get_settings()
+    enabled = portal_auth.portal_enabled()
+    web = (settings.pmo_portal_web_url or settings.pmo_portal_base_url or "").rstrip("/")
+    return {
+        "enabled": enabled,
+        "portal_web_url": web or None,
+        "portal_login_url": f"{web}/login" if web else None,
+        "portal_register_url": f"{web}/register" if web else None,
+    }
+
+
 @router.post("/change-password", status_code=200)
 @limiter.limit("10/hour")  # 防暴力改密（旧密码错误尝试）
 def change_password(
@@ -192,7 +256,14 @@ def change_password(
     与 admin 重置密码（PATCH /users/{id}）的区别：admin 改密不需要旧密码（特权操作），
     本端点是登录用户自己改，必须先验证旧密码。失败原因分开（防枚举）。
     """
-    if not verify_password(body.current_password, user.password_hash):
+    if portal_auth.portal_enabled():
+        raise _err(501, "已启用统一认证，请在 Portal 修改密码", "ERR_SSO_PASSWORD")
+
+    orm = db.get(User, user.user_id)
+    if orm is None:
+        raise _err(401, "用户不存在", "ERR_UNAUTHORIZED")
+
+    if not verify_password(body.current_password, orm.password_hash):
         log_action(
             db,
             user.username,
@@ -210,10 +281,10 @@ def change_password(
         raise _err(400, "新密码不能与当前密码相同", "ERR_BAD_REQUEST")
 
     try:
-        user.password_hash = hash_password(body.new_password)
+        orm.password_hash = hash_password(body.new_password)
     except ValueError as e:
         raise _err(400, str(e), "ERR_BAD_REQUEST") from e
-    user.updated_at = datetime.now().isoformat()
+    orm.updated_at = datetime.now().isoformat()
 
     log_action(
         db,
@@ -251,6 +322,8 @@ def create_user(
     admin: AdminUser,
     db: Session = Depends(get_db),
 ) -> UserOut:
+    if portal_auth.portal_enabled():
+        raise _sso_user_mgmt_disabled()
     if body.role not in ROLES:
         raise _err(400, f"无效角色: {body.role}", "ERR_BAD_REQUEST")
 
@@ -297,6 +370,8 @@ def update_user(
     request: Request,
     db: Session = Depends(get_db),
 ) -> UserOut:
+    if portal_auth.portal_enabled():
+        raise _sso_user_mgmt_disabled()
     target = db.get(User, user_id)
     if target is None:
         raise _err(404, "用户不存在", "ERR_NOT_FOUND")
@@ -375,6 +450,8 @@ def delete_user(
     db: Session = Depends(get_db),
 ) -> None:
     """删除用户（永久删除，非停用）。"""
+    if portal_auth.portal_enabled():
+        raise _sso_user_mgmt_disabled()
     target = db.get(User, user_id)
     if target is None:
         raise _err(404, "用户不存在", "ERR_NOT_FOUND")

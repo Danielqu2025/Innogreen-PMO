@@ -33,6 +33,9 @@ os.environ["PMO_ENABLE_DOCS"] = "false"
 os.environ["PMO_HTTPS_ONLY"] = "false"
 # 测试同样关 trust-proxy（生产 .env 的 PMO_TRUST_PROXY_HEADER=true 会让 rate_limit 用 XFF，与测试无关）
 os.environ["PMO_TRUST_PROXY_HEADER"] = "false"
+# 测试强制关 SSO，避免误连本机 Portal
+os.environ["PMO_PORTAL_BASE_URL"] = ""
+os.environ["PMO_PORTAL_WEB_URL"] = ""
 
 sys.path.insert(0, str(BACKEND))
 

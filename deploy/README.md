@@ -4,6 +4,8 @@
 - 公网：**https://pmo.dqhermes.kdns.fr/**
 - 后端：`http://127.0.0.1:8000`（仅本机，不对外）
 
+> **同域 SSO（Portal + PMO + qcc）**：见 [SSO.md](SSO.md) 与 [nginx.innogreen-sso.conf](nginx.innogreen-sso.conf)。
+
 ---
 
 ## 架构总览

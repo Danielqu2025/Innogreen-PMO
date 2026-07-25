@@ -1,0 +1,273 @@
+/* 四端共用侧栏 —— 改完请同步到
+ * portal/static/shell-sidebar.css
+ * web/frontend/src/layout/shell-sidebar.css
+ * qcc/static/shell-sidebar.css
+ * Scrapling/examples/sh_eia/app/static/shell-sidebar.css
+ */
+
+.shell-sidebar {
+  --shell-ink: #111827;
+  --shell-muted: #5b6572;
+  --shell-line: #e5e7eb;
+  --shell-sidebar-bg: #f4f5f7;
+  --shell-accent: #0b5fff;
+  --shell-white: #ffffff;
+
+  width: 280px;
+  flex: none;
+  background: var(--shell-sidebar-bg) !important;
+  border-right: 1px solid var(--shell-line);
+  color: var(--shell-ink);
+  box-sizing: border-box;
+}
+
+/* Ant Design Sider 兼容 */
+.shell-sidebar.ant-layout-sider,
+.shell-sidebar.ant-layout-sider .ant-layout-sider-children {
+  background: var(--shell-sidebar-bg) !important;
+}
+
+.shell-sidebar.ant-layout-sider .ant-layout-sider-children,
+.shell-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 36px 28px 28px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--shell-sidebar-bg);
+}
+
+/* 纯 aside 用法（Portal / qcc） */
+aside.shell-sidebar {
+  padding: 36px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 72px;
+  height: calc(100vh - 72px);
+  overflow: hidden;
+  align-self: start;
+}
+
+.shell-sidebar-brand {
+  display: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0b2b5b;
+  padding: 0 0 16px;
+}
+
+.shell-sidebar-top {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.shell-sidebar-bottom {
+  flex-shrink: 0;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+/* 账户卡 */
+.shell-user-box {
+  background: var(--shell-white);
+  border: 1px solid var(--shell-line);
+  padding: 16px;
+  margin-bottom: 28px;
+}
+
+.shell-user-box-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--shell-ink);
+  margin-bottom: 4px;
+}
+
+.shell-user-box-meta {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--shell-muted);
+}
+
+/* 快捷入口标题 */
+.shell-sidebar-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--shell-muted);
+  margin: 0 0 16px;
+}
+
+/* 链接列表 */
+.shell-side-list {
+  list-style: none;
+  margin: 0 0 32px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.shell-side-list > li {
+  margin: 0;
+}
+
+.shell-side-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 8px 10px 14px;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--shell-ink);
+  font-family: "Source Sans 3", "Noto Sans SC", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+a.shell-side-link,
+button.shell-side-link {
+  color: var(--shell-ink);
+}
+
+.shell-side-link:hover {
+  border-left-color: var(--shell-accent);
+  color: var(--shell-accent);
+  background: rgba(11, 95, 255, 0.04);
+  text-decoration: none;
+}
+
+.shell-side-link.is-active,
+.shell-side-link.active {
+  border-left-color: var(--shell-accent);
+  color: var(--shell-accent);
+  background: rgba(11, 95, 255, 0.04);
+}
+
+.shell-side-ico {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  color: inherit;
+}
+
+.shell-side-ico svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+.shell-side-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.shell-side-title {
+  display: block;
+}
+
+.shell-side-link em {
+  display: block;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--shell-muted);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.shell-side-link:hover em,
+.shell-side-link.is-active em,
+.shell-side-link.active em {
+  color: var(--shell-accent);
+}
+
+/* 子菜单（PMO 设置） */
+.shell-side-group-children {
+  display: none;
+  flex-direction: column;
+}
+
+.shell-side-group-children.is-open {
+  display: flex;
+}
+
+.shell-side-link.is-child {
+  padding-left: 48px;
+  font-size: 16px;
+}
+
+.shell-side-group-toggle .shell-side-caret {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+
+.shell-side-group-toggle.is-open .shell-side-caret {
+  transform: rotate(90deg);
+}
+
+/* 底部说明 */
+.shell-notice {
+  border: 1px solid var(--shell-accent);
+  background: var(--shell-white);
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--shell-ink);
+}
+
+.shell-notice strong {
+  display: block;
+  color: var(--shell-accent);
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.shell-side-foot {
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--shell-muted);
+}
+
+/* Portal 窄屏：侧栏改为通栏堆叠（qcc 抽屉覆盖见各自 style.css） */
+@media (max-width: 960px) {
+  aside.shell-sidebar {
+    position: static;
+    top: auto;
+    height: auto;
+    min-height: 0;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--shell-line);
+    padding: 24px 20px;
+  }
+
+  .shell-sidebar-bottom {
+    margin-top: 24px;
+  }
+}

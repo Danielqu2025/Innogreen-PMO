@@ -17,6 +17,7 @@ import {
   type DashboardProject,
   type DashboardSummary,
 } from "../api/client";
+import "./DashboardPage.css";
 
 const statusColor: Record<string, string> = {
   卡点: "error",
@@ -173,66 +174,68 @@ export default function DashboardPage() {
           </div>
         </Col>
         <Col xs={24} lg={14}>
-          <Table
-            size="small"
-            rowKey="project_id"
-            pagination={{ pageSize: 8, hideOnSinglePage: true }}
-            dataSource={projects}
-            columns={[
-              {
-                title: "项目",
-                dataIndex: "short_name",
-                render: (_: string | null, row: DashboardProject) => (
-                  <Link to={`/ops/projects/${row.project_id}`}>
-                    {row.short_name || row.project_code}
-                  </Link>
-                ),
-              },
-              {
-                title: "楼栋号",
-                dataIndex: "building",
-                width: 100,
-                render: (v: string | null) => v || "—",
-              },
-              {
-                title: "当前阶段",
-                dataIndex: "current_stage_name",
-                ellipsis: true,
-                render: (v: string | null) => v || "—",
-              },
-              {
-                title: "进度",
-                dataIndex: "progress_percent",
-                width: 90,
-                render: (v: number) => `${v}%`,
-              },
-              {
-                title: "状态",
-                dataIndex: "project_status",
-                width: 90,
-                render: (s: string) => (
-                  <Tag color={statusColor[s] || "default"}>{s}</Tag>
-                ),
-              },
-              {
-                title: "风险",
-                width: 160,
-                render: (_: unknown, row: DashboardProject) => {
-                  const flags = row.flags;
-                  if (!flags?.blocker && !flags?.delayed && !flags?.stalled) {
-                    return "—";
-                  }
-                  return (
-                    <Space size={4} wrap>
-                      {flags.blocker && <Tag color="error">卡点</Tag>}
-                      {flags.delayed && <Tag color="warning">延期</Tag>}
-                      {flags.stalled && <Tag>停滞</Tag>}
-                    </Space>
-                  );
+          <div className="dashboard-projects-table">
+            <Table
+              size="small"
+              rowKey="project_id"
+              pagination={{ pageSize: 8, hideOnSinglePage: true }}
+              dataSource={projects}
+              scroll={{ x: "max-content" }}
+              columns={[
+                {
+                  title: "项目",
+                  dataIndex: "short_name",
+                  render: (_: string | null, row: DashboardProject) => (
+                    <Link to={`/ops/projects/${row.project_id}`}>
+                      {row.short_name || row.project_code}
+                    </Link>
+                  ),
                 },
-              },
-            ]}
-          />
+                {
+                  title: "楼栋号",
+                  dataIndex: "building",
+                  width: 100,
+                  render: (v: string | null) => v || "—",
+                },
+                {
+                  title: "当前阶段",
+                  dataIndex: "current_stage_name",
+                  render: (v: string | null) => v || "—",
+                },
+                {
+                  title: "进度",
+                  dataIndex: "progress_percent",
+                  width: 90,
+                  render: (v: number) => `${v}%`,
+                },
+                {
+                  title: "状态",
+                  dataIndex: "project_status",
+                  width: 90,
+                  render: (s: string) => (
+                    <Tag color={statusColor[s] || "default"}>{s}</Tag>
+                  ),
+                },
+                {
+                  title: "风险",
+                  width: 160,
+                  render: (_: unknown, row: DashboardProject) => {
+                    const flags = row.flags;
+                    if (!flags?.blocker && !flags?.delayed && !flags?.stalled) {
+                      return "—";
+                    }
+                    return (
+                      <Space size={4} wrap>
+                        {flags.blocker && <Tag color="error">卡点</Tag>}
+                        {flags.delayed && <Tag color="warning">延期</Tag>}
+                        {flags.stalled && <Tag>停滞</Tag>}
+                      </Space>
+                    );
+                  },
+                },
+              ]}
+            />
+          </div>
         </Col>
       </Row>
 

@@ -1,8 +1,51 @@
 import axios from "axios";
 
+/** 部署在 /pmo/ 下时 Vite base 为 /pmo/；本地开发为 / */
+const APP_BASE = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+const PORTAL_LOGIN_KEY = "pmo_portal_login_url";
+
+function withBase(path: string): string {
+  if (!path.startsWith("/")) return path;
+  return `${APP_BASE}${path}` || path;
+}
+
+/** SSO 开启时跳 Portal 登录页；否则回本应用 /login */
+export function loginRedirectUrl(): string {
+  const portal = localStorage.getItem(PORTAL_LOGIN_KEY);
+  if (portal) return portal;
+  return withBase("/login");
+}
+
+export type SsoStatus = {
+  enabled: boolean;
+  portal_web_url: string | null;
+  portal_login_url: string | null;
+  portal_register_url: string | null;
+};
+
+export async function fetchSsoStatus(): Promise<SsoStatus> {
+  try {
+    const r = await api.get<SsoStatus>("/api/auth/sso-status");
+    if (r.data.enabled && r.data.portal_login_url) {
+      localStorage.setItem(PORTAL_LOGIN_KEY, r.data.portal_login_url);
+    } else {
+      localStorage.removeItem(PORTAL_LOGIN_KEY);
+    }
+    return r.data;
+  } catch {
+    localStorage.removeItem(PORTAL_LOGIN_KEY);
+    return {
+      enabled: false,
+      portal_web_url: null,
+      portal_login_url: null,
+      portal_register_url: null,
+    };
+  }
+}
+
 // 会话 cookie 鉴权：withCredentials 让浏览器在跨源时也带 cookie（同源时无害）
 export const api = axios.create({
-  baseURL: "",
+  baseURL: APP_BASE || undefined,
   timeout: 15000,
   withCredentials: true,
 });
@@ -13,8 +56,8 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       const url: string = err.config?.url ?? "";
       // /api/auth/me 的 401 交给 AuthContext 处理（避免初次探测时硬跳转）；登录页自身不跳
-      if (!url.includes("/api/auth/me") && !window.location.pathname.startsWith("/login")) {
-        window.location.href = "/login";
+      if (!url.includes("/api/auth/me") && !window.location.pathname.includes("/login")) {
+        window.location.href = loginRedirectUrl();
       }
     }
     return Promise.reject(err);

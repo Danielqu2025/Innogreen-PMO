@@ -184,7 +184,7 @@ innogreen-pmo/
                                 # DataImport, DataExport, TenantPlaceholder
 ```
 
-**Backend services** (`web/backend/services/`): audit, critical_path, dashboard, journal, progress_service, project_service, pitfall_service, task_service, import_service, export_service, db_transfer
+**Backend services** (`web/backend/services/`): audit, critical_path, dashboard, journal, progress_service, project_service, pitfall_service, task_service, import_service, export_service, db_transfer, **qcc_service**
 
 ## Web App Architecture (Phase C)
 
@@ -204,6 +204,81 @@ innogreen-pmo/
 - `POST/PATCH /api/ops/tasks`, `POST .../activate|deactivate` — **admin** task catalog (soft-delete via `is_active`; insert auto-renumbers sibling `task_code`)
 
 There are **no hard DELETE endpoints** by design (traceability; tasks use deactivate). `/api/tenant/*` returns 501 until v1.4.
+
+## qcc 企业资质库集成（方案一）
+
+PMO 后端通过 SQLite `ATTACH DATABASE` 附加 qcc 数据库（`qualifications.db`），只读联查工商信息和资质证照。
+
+**配置**：
+```bash
+# web/.env
+PMO_QCC_DB_PATH=/opt/qcc/data/qualifications.db
+```
+
+**API 端点**：
+- `GET /api/ops/qcc/status` — 查询 qcc 连接状态
+- `GET /api/ops/qcc/companies/lookup?credit_code=xxx` — 按信用代码/名称查企业详情
+- `GET /api/ops/qcc/companies/expiring?days=30` — 列出即将到期的资质
+
+**前端**：企业详情页显示「企业详情」按钮，点击弹出抽屉展示工商信息 + 资质证照表；进度表的「第三方单位」列也可点击查看。
+
+## Portal（统一身份认证）
+
+`portal/` 是独立的 IAM Portal（IdP），为 PMO、qcc、sh_eia 及未来应用提供统一身份与按应用授权的 SSO。
+
+**模型**：
+- `users`：身份唯一真源（Portal 角色仅 `admin`/`viewer`）
+- `app_memberships`：用户 × 应用 → 角色（PMO/qcc/sh_eia 统一为 admin/operator/viewer；历史 user ≡ operator）
+- 无有效 membership = 无权进入该应用
+
+**启动**：
+```bash
+cd portal
+copy .env.example .env   # Windows
+# 编辑 .env：SESSION_SECRET 必须与 PMO 的 PMO_SESSION_SECRET 相同
+pip install -r requirements.txt
+uvicorn main:app --reload --host 127.0.0.1 --port 8001
+```
+
+**核心端点**：
+- `POST /api/auth/login` — 登录（写 session cookie）
+- `GET /api/auth/verify-session?app=PMO|qcc|sh_eia` — 跨应用验会话，返回本应用角色
+- `GET /api/apps/mine` — 当前用户有权访问的应用
+- `PUT /api/auth/users/{id}/memberships` — 授予/更新应用角色（admin）
+
+**用户合并**：
+```bash
+python scripts/merge_users_to_portal.py --dry-run
+python scripts/merge_users_to_portal.py \
+  --sh-eia-db D:/github/Scrapling/examples/sh_eia/data/auth.db
+```
+
+**PMO 接入（SSO）**：在 `web/.env` 设置：
+```
+PMO_PORTAL_BASE_URL=http://127.0.0.1:8001
+PMO_PORTAL_WEB_URL=http://127.0.0.1:8001
+PMO_SESSION_SECRET=<与 Portal SESSION_SECRET 相同>
+```
+登录会代理到 Portal；`get_current_user` 调 `verify-session?app=PMO`。留空 `PMO_PORTAL_BASE_URL` 则回退本地 users（pytest 默认）。
+
+**qcc 接入（SSO）**：在 `D:\Claude\qcc\.env` 设置：
+```
+QCC_PORTAL_BASE_URL=http://127.0.0.1:8001
+QCC_PORTAL_WEB_URL=http://127.0.0.1:8001
+QCC_SESSION_SECRET=<与 Portal SESSION_SECRET 相同>
+```
+鉴权调 `verify-session?app=qcc`；留空则回退本地 JWT + `is_approved`。
+
+**sh_eia 接入（SSO）**：在 `D:\github\Scrapling\examples\sh_eia\.env` 设置：
+```
+SH_EIA_PORTAL_BASE_URL=http://127.0.0.1:8001
+SH_EIA_PORTAL_WEB_URL=http://127.0.0.1:8001
+SH_EIA_SESSION_SECRET=<与 Portal SESSION_SECRET 相同>
+SH_EIA_PUBLIC_BASE=/eia
+```
+鉴权调 `verify-session?app=sh_eia`；留空则回退本地 JWT + 审批制。
+
+详见 [portal/README.md](portal/README.md)。同域路径（含 `/eia/`）+ HTTPS cookie 见 [deploy/SSO.md](deploy/SSO.md)。
 
 ## Language Convention
 

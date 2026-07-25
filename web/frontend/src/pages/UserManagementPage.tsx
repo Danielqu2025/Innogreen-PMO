@@ -22,6 +22,7 @@ import {
   listAuditLogs,
   listUsers,
   updateUser,
+  api,
   type AuditLog,
   type Role,
   type User,
@@ -113,6 +114,8 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [portalWebUrl, setPortalWebUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("active");
   const [roleFilter, setRoleFilter] = useState<Role | undefined>();
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | undefined>("active");
@@ -127,6 +130,16 @@ export default function UserManagementPage() {
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [pwForm] = Form.useForm();
+
+  useEffect(() => {
+    api
+      .get<{ enabled: boolean; portal_web_url: string | null }>("/api/auth/sso-status")
+      .then((r) => {
+        setSsoEnabled(!!r.data.enabled);
+        setPortalWebUrl(r.data.portal_web_url);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -187,6 +200,28 @@ export default function UserManagementPage() {
   // 非管理员不应进入此页（菜单也不显示，这里是兜底）
   if (me && me.role !== "admin") return <Navigate to="/ops" replace />;
   if (!me) return null;
+  if (ssoEnabled) {
+    const adminUrl = portalWebUrl
+      ? `${portalWebUrl.replace(/\/$/, "")}/admin`
+      : null;
+    return (
+      <Alert
+        type="info"
+        showIcon
+        message="用户与授权已迁移至 Portal"
+        description={
+          <Space direction="vertical" size={12}>
+            <span>当前启用统一认证，本应用不再提供本地账号管理，请在 Portal 统一管理账号与应用授权。</span>
+            {adminUrl ? (
+              <Button type="primary" href={adminUrl} target="_blank" rel="noreferrer">
+                打开 Portal 账号管理
+              </Button>
+            ) : null}
+          </Space>
+        }
+      />
+    );
+  }
   if (error) return <Alert type="error" message={error} />;
 
   const onCreate = async (values: {

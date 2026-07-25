@@ -5,8 +5,9 @@
 *.png
 *.jpg
 *.jpeg
-# 例外：前端 logo 是构建必需资源
+# 例外：前�?logo 是构建必需资源
 !web/frontend/public/logo.jpg
+!portal/static/logo.jpg
 
 # Database
 *.db
@@ -48,7 +49,7 @@ Proxxima.md
 **/cookies.txt
 cookies.txt
 
-# Local private mappings (real company names — never commit)
+# Local private mappings (real company names �?never commit)
 data/private/**
 !data/private/.gitkeep
 !data/private/*.example
