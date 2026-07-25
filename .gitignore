@@ -5,6 +5,8 @@
 *.png
 *.jpg
 *.jpeg
+# 例外：前端 logo 是构建必需资源
+!web/frontend/public/logo.jpg
 
 # Database
 *.db

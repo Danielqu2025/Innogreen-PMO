@@ -6,6 +6,7 @@
 - GET  /api/auth/me      当前用户（前端 AuthContext 探测）
 - 管理员专用：GET/POST /api/auth/users、PATCH /api/auth/users/{id}
 - 管理员专用：GET /api/auth/audit（审计 / 登录记录）
+- 管理员专用：GET /api/auth/audit/export.xlsx（导出审计为 Excel 留档）
 """
 from datetime import datetime
 
@@ -423,3 +424,78 @@ def list_audit(
         q = q.where(AuditLog.action == action)
     q = q.order_by(AuditLog.audit_id.desc()).limit(limit)
     return list(db.execute(q).scalars().all())
+
+
+@router.get("/audit/export.xlsx")
+@limiter.limit("5/hour")  # 导出 Excel 是较重操作，限速；管理员也只能每小时 5 次
+def export_audit_xlsx(
+    request: Request,
+    response: Response,
+    admin: AdminUser,
+    db: Session = Depends(get_db),
+    resource: str | None = Query(None, description="按资源过滤"),
+    action: str | None = Query(None, description="按动作过滤"),
+) -> Response:
+    """管理员导出审计日志为 Excel（.xlsx），便于法务/合规留档。
+
+    字段：audit_id / created_at / actor / action / resource / resource_id /
+         payload(JSON 字符串原文) / ip_address / user_agent
+    注：payload 字段含变更前后明细；导出时请妥善保管 xlsx 文件，
+    因其含用户敏感操作历史。
+    """
+    from io import BytesIO
+
+    from openpyxl import Workbook
+
+    q = select(AuditLog)
+    if resource:
+        q = q.where(AuditLog.resource == resource)
+    if action:
+        q = q.where(AuditLog.action == action)
+    q = q.order_by(AuditLog.audit_id.desc())
+    rows = list(db.execute(q).scalars().all())
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "audit_log"
+    headers = [
+        "audit_id",
+        "created_at",
+        "actor",
+        "action",
+        "resource",
+        "resource_id",
+        "payload",
+        "ip_address",
+        "user_agent",
+    ]
+    ws.append(headers)
+    for r in rows:
+        ws.append(
+            [
+                r.audit_id,
+                r.created_at,
+                r.actor,
+                r.action,
+                r.resource,
+                r.resource_id,
+                r.payload or "",
+                r.ip_address or "",
+                r.user_agent or "",
+            ]
+        )
+
+    buf = BytesIO()
+    wb.save(buf)
+    body = buf.getvalue()
+
+    filename = f"innogreen_pmo_audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=body,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            # 不暴露绝对路径（信息泄露）；仅文件名
+            "X-Audit-Export-Count": str(len(rows)),
+        },
+    )

@@ -230,6 +230,10 @@ if (FRONTEND_DIST / "index.html").exists():
                 status_code=404,
                 content={"detail": {"error": True, "code": "ERR_NOT_FOUND", "message": "Not Found"}},
             )
+        # dist 根目录的静态文件（logo.jpg / favicon.svg / icons.svg 等）
+        static_file = FRONTEND_DIST / p.lstrip("/")
+        if static_file.is_file():
+            return FileResponse(str(static_file))
         return FileResponse(str(FRONTEND_DIST / "index.html"), media_type="text/html")
 
 
