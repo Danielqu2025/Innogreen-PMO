@@ -4,7 +4,8 @@
 """
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -138,10 +139,12 @@ def upsert_membership(
 
 # === 登录 / 登出 / 注册 ===
 
-@router.post("/login", response_model=UserOut)
-def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == body.username).first()
-    if not user or not verify_password(body.password, user.password_hash):
+def _do_login(
+    request: Request, username: str, password: str, db: Session
+) -> User:
+    """共用登录逻辑：校验密码 + 写 session + 审计。返回 User。"""
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.password_hash):
         raise _LOGIN_FAIL
     if user.is_active != 1:
         raise _LOGIN_FAIL
@@ -161,7 +164,68 @@ def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
         ip_address=_client_ip(request),
     )
     db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/login", response_model=UserOut)
+def login(request: Request, body: LoginIn, db: Session = Depends(get_db)) -> UserOut:
+    """JSON 登录（SPA 客户端用）。"""
+    user = _do_login(request, body.username, body.password, db)
     return _user_out(user, _list_memberships(db, user.user_id, active_only=True))
+
+
+@router.post("/login-form")
+def login_form(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/"),
+    db: Session = Depends(get_db),
+):
+    """表单登录（浏览器原生 POST，无 JS）。
+
+    成功 → 渲染目标页 next（避免 302 跟随导致某些移动浏览器丢 cookie）。
+    失败 → 渲染错误页。
+
+    HarmonyOS 自带浏览器在 POST + 302 跟随的 GET 请求中不发送刚 Set-Cookie
+    的 Secure cookie（即使 SameSite=None）。解决方案：直接渲染目标页 HTML，
+    跳过 302。Cookie 已写入响应头，浏览器会在渲染目标页后看到登录态。
+    """
+    # 防 open redirect：仅允许相对路径
+    if not next.startswith("/") or next.startswith("//"):
+        next = "/"
+
+    try:
+        _do_login(request, username, password, db)
+    except HTTPException:
+        html = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录失败 - INNOGREEN</title>
+<style>body{font-family:system-ui;margin:0;padding:24px;background:#f4f5f7;color:#111}
+.box{max-width:380px;margin:48px auto;background:#fff;border:1px solid #e5e7eb;
+padding:28px 24px;border-radius:8px}h1{color:#b91c1c;font-size:20px;margin:0 0 12px}
+p{margin:0 0 16px;color:#5b6572;font-size:14px}
+a{display:inline-block;padding:10px 18px;background:#0b2b5b;color:#fff;
+text-decoration:none;border-radius:6px;font-weight:600}</style></head>
+<body><div class="box"><h1>登录失败</h1>
+<p>用户名或密码错误，或账号已停用。</p>
+<a href="/login">返回登录</a></div></body></html>"""
+        return HTMLResponse(content=html, status_code=401)
+
+    # 成功：渲染目标页 HTML（不走 302）
+    # Portal 的 static 目录在 portal/static/，相对于 portal/routers/auth.py 是 ../static
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+    index_path = os.path.join(static_dir, "index.html")
+    try:
+        with open(index_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return RedirectResponse(url=next, status_code=302)  # 兜底
+
+    # 不需要 Cache-Control: no-cache，因为 cookie 是 fresh 的
+    return HTMLResponse(content=content)
 
 
 @router.post("/logout")

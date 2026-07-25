@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from config import get_settings
 from database import Base, engine, init_db
@@ -129,6 +130,10 @@ app = FastAPI(
     docs_url="/docs" if _docs_on else None,
 )
 
+# 信任 nginx / Cloudflare Tunnel 注入的 X-Forwarded-Proto，使 request.url.scheme
+# 在反代后端为 https，cookie 能正确标记 Secure
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -140,7 +145,10 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
     session_cookie=settings.session_cookie_name,
-    same_site="lax",
+    # SameSite=None 强制浏览器在所有场景下发送 cookie（包括 POST→302→GET
+    # 跟随）。鸿蒙浏览器在 SameSite=Lax 下偶发不发送刚 Set-Cookie 的 Secure
+    # cookie。None + Secure 在 HTTPS 部署下安全无副作用（Cookie 仅走 HTTPS）。
+    same_site="none",
     https_only=settings.https_only,
     domain=settings.session_cookie_domain or None,
     max_age=60 * 60 * 24 * 7,  # 7 天

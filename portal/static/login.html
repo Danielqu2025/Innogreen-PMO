@@ -147,9 +147,8 @@
       <h1>登录</h1>
       <p>使用统一账号进入 INNOGREEN 工作台</p>
 
-      <div class="error" id="error"></div>
-
-      <form onsubmit="handleLogin(event)">
+      <form method="post" action="/api/auth/login-form">
+        <input type="hidden" name="next" value="/">
         <div class="form-group">
           <label>用户名</label>
           <input type="text" name="username" required autofocus autocomplete="username">
@@ -158,7 +157,7 @@
           <label>密码</label>
           <input type="password" name="password" required autocomplete="current-password">
         </div>
-        <button type="submit" class="submit-btn" id="submitBtn">登录</button>
+        <button type="submit" class="submit-btn">登录</button>
       </form>
 
       <div class="links"><a href="/register">还没有账号？注册</a></div>
@@ -167,36 +166,14 @@
   </div>
 
   <script>
-    const API = '';
-    async function handleLogin(e) {
-      e.preventDefault();
-      const btn = document.getElementById('submitBtn');
-      const errorEl = document.getElementById('error');
-      const form = e.target;
-      btn.disabled = true;
-      btn.textContent = '登录中...';
-      errorEl.textContent = '';
-      try {
-        const r = await fetch(API + '/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            username: form.username.value,
-            password: form.password.value,
-          }),
-        });
-        if (r.ok) window.location.href = '/';
-        else {
-          const data = await r.json();
-          errorEl.textContent = data.detail?.message || '登录失败';
-        }
-      } catch {
-        errorEl.textContent = '网络错误，请重试';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '登录';
-      }
+    // 表单走浏览器原生 POST（action="/api/auth/login-form"），无需 JS。
+    // 此处仅做表单提交时的 disabled 视觉反馈，避免重复点击。
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', () => {
+        const btn = form.querySelector('button[type=submit]');
+        if (btn) { btn.disabled = true; btn.textContent = '登录中...'; }
+      });
     }
   </script>
 </body>
