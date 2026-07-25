@@ -1,6 +1,7 @@
 import { Button, Card, Form, Input, Typography, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import { register as apiRegister } from "../api/client";
+import logoUrl from "/logo.jpg?url";
 
 export default function RegisterPage() {
   const nav = useNavigate();
@@ -48,7 +49,7 @@ export default function RegisterPage() {
         title={
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <img
-              src="/logo.jpg"
+              src={logoUrl}
               alt="INNOGREEN"
               style={{ width: "100%", maxWidth: 180, height: "auto", borderRadius: 8 }}
             />

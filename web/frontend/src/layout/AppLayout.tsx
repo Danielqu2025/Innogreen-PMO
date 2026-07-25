@@ -16,6 +16,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { changePassword, type Role } from "../api/client";
+import logoUrl from "/logo.jpg?url";
 
 const { Header, Sider, Content } = Layout;
 
@@ -154,7 +155,7 @@ export default function AppLayout() {
           }}
         >
           <img
-            src="/logo.jpg"
+            src={logoUrl}
             alt="INNOGREEN"
             style={{ width: "100%", maxWidth: 160, height: "auto", borderRadius: 8 }}
           />
