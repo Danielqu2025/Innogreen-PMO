@@ -280,6 +280,8 @@ SH_EIA_PUBLIC_BASE=/eia
 
 详见 [portal/README.md](portal/README.md)。同域路径（含 `/eia/`）+ HTTPS cookie 见 [deploy/SSO.md](deploy/SSO.md)。
 
+**统一壳层 / 响应式**：四端共用 `shell-top-actions.css` + `shell-sidebar.css`。`≤960` 侧栏汉堡抽屉，`≤720` 顶栏仅图标；Portal 应用卡同页跳转。改样式请四端同步。
+
 ## Language Convention
 
 - **Project language**: Mixed — planning docs in Chinese, code in English

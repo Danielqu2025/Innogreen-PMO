@@ -1,25 +1,36 @@
 # Innogreen 同域 SSO 部署（P3）
 
-一条公网域名经 nginx 路径分流到 Portal / PMO / qcc，共享 `innogreen_session` cookie。
+一条公网域名经 nginx 路径分流到 Portal / PMO / qcc / sh_eia，共享 `innogreen_session` cookie。
+
+应用侧角色统一为 **admin / operator / viewer**（历史 qcc、sh_eia 的 `user` ≡ `operator`）。壳层响应式：`≤960` 侧栏抽屉、`≤720` 顶栏图标化。
 
 ## 路径约定
 
 | 公网路径 | 上游 | 说明 |
 |---------|------|------|
 | `/` `/login` `/api/auth` `/api/apps` | `127.0.0.1:8001` Portal | IdP |
-| `/pmo/` | `127.0.0.1:8000` PMO | 去掉前缀后反代 |
+| `/pmo/` | `127.0.0.1:8000`（本机若 8000 占用可用 `8800`，见下方本地代理） | 去掉前缀后反代 |
 | `/qcc/` | `127.0.0.1:8765` qcc | 去掉前缀后反代 |
 | `/eia/` | `127.0.0.1:8080` sh_eia | 去掉前缀后反代 |
 
 配置文件：[`nginx.innogreen-sso.conf`](nginx.innogreen-sso.conf)（listen `127.0.0.1:8788`）。
 
-## Cookie（三端必须一致）
+### Windows 本机快速试用（无 nginx）
+
+```bash
+# 终端分别启动 Portal:8001、PMO:8800、qcc:8765、sh_eia:8080 后：
+python scripts/local_sso_proxy.py
+```
+
+打开 http://127.0.0.1:8788/ （`/pmo/`→8800，`/qcc/`→8765；sh_eia 仍可直连 8080，或按需扩展代理）。
+
+## Cookie（各端必须一致）
 
 | 项 | 值 |
 |----|-----|
 | Name | `innogreen_session` |
 | Path | `/` |
-| Secure | 生产 `true`（`HTTPS_ONLY` / `PMO_HTTPS_ONLY` / `QCC_HTTPS_ONLY`） |
+| Secure | 生产 `true`（`HTTPS_ONLY` / `PMO_HTTPS_ONLY` / `QCC_HTTPS_ONLY` / `SH_EIA_HTTPS_ONLY`） |
 | SameSite | `Lax` |
 | Domain | 同域路径方案**留空** |
 
@@ -35,6 +46,7 @@ HTTPS_ONLY=true
 CORS_ORIGINS=https://innogreen.example.com
 PMO_PUBLIC_URL=https://innogreen.example.com/pmo/
 QCC_PUBLIC_URL=https://innogreen.example.com/qcc/
+SH_EIA_PUBLIC_URL=https://innogreen.example.com/eia/
 ```
 
 **PMO `web/.env`**
@@ -46,6 +58,7 @@ PMO_TRUST_PROXY_HEADER=true
 PMO_CORS_ORIGINS=https://innogreen.example.com
 PMO_PORTAL_BASE_URL=http://127.0.0.1:8001
 PMO_PORTAL_WEB_URL=https://innogreen.example.com
+PMO_PUBLIC_BASE=/pmo
 ```
 前端构建：
 ```bash
@@ -94,12 +107,13 @@ https://qcc.你的域名  ──Cloudflare Tunnel──▶ 本机 127.0.0.1:8765
 https://innogreen.你的域名/       ──Tunnel──▶ 本机 nginx:8788 ──▶ Portal :8001
 https://innogreen.你的域名/pmo/   ──Tunnel──▶ 本机 nginx:8788 ──▶ PMO    :8000
 https://innogreen.你的域名/qcc/   ──Tunnel──▶ 本机 nginx:8788 ──▶ qcc    :8765
+https://innogreen.你的域名/eia/   ──Tunnel──▶ 本机 nginx:8788 ──▶ sh_eia :8080
 ```
 
 要点：
 
-1. Cloudflare Tunnel **只能按「域名」转发**，**不会**自动去掉 `/pmo`、`/qcc` 前缀。  
-2. 所以 Tunnel 必须指到 **nginx（8788）**，由 nginx 负责剥前缀并转发到三个应用。  
+1. Cloudflare Tunnel **只能按「域名」转发**，**不会**自动去掉 `/pmo`、`/qcc`、`/eia` 前缀。  
+2. 所以 Tunnel 必须指到 **nginx（8788）**，由 nginx 负责剥前缀并转发到各应用。  
 3. 旧的 `pmo.` / `qcc.` 子域名建议做成 **301 跳转到新地址**，书签不会彻底失效。
 
 下面把「你的域名」举例写成 `dqhermes.kdns.fr`，新统一入口举例写成 `innogreen.dqhermes.kdns.fr`。  
@@ -110,8 +124,8 @@ https://innogreen.你的域名/qcc/   ──Tunnel──▶ 本机 nginx:8788 �
 在服务器 SSH 里逐条检查：
 
 ```bash
-# 1) Portal / PMO / qcc 都在本机监听（端口按你实际为准）
-ss -lntp | grep -E '8001|8000|8765|8788'
+# 1) Portal / PMO / qcc / sh_eia 都在本机监听（端口按你实际为准）
+ss -lntp | grep -E '8001|8000|8765|8080|8788'
 
 # 2) nginx 配置已安装且指向 8788（见 deploy/nginx.innogreen-sso.conf）
 sudo nginx -t
@@ -259,6 +273,7 @@ sudo journalctl -u cloudflared -n 50 --no-pager
 curl -sI http://127.0.0.1:8788/ | head -5
 curl -sI http://127.0.0.1:8788/pmo/ | head -5
 curl -sI http://127.0.0.1:8788/qcc/ | head -5
+curl -sI http://127.0.0.1:8788/eia/ | head -5
 ```
 
 然后在**你自己的电脑浏览器**打开（等 DNS 生效，通常几十秒到几分钟）：
@@ -266,6 +281,7 @@ curl -sI http://127.0.0.1:8788/qcc/ | head -5
 1. `https://innogreen.dqhermes.kdns.fr/` → 应出现统一门户登录页  
 2. 登录后打开 `https://innogreen.dqhermes.kdns.fr/pmo/`  
 3. 打开 `https://innogreen.dqhermes.kdns.fr/qcc/`  
+4. 打开 `https://innogreen.dqhermes.kdns.fr/eia/` 
 
 若浏览器报 DNS 错误：再等一会，或用  
 `nslookup innogreen.dqhermes.kdns.fr`  
@@ -376,7 +392,7 @@ location: https://innogreen.dqhermes.kdns.fr/pmo/
 
 ### 步骤 9：应用 `.env` 与前端（和 Cloudflare 配套）
 
-Tunnel 指对了还不够，三端环境变量必须用**新统一域名**（示例）：
+Tunnel 指对了还不够，各端环境变量必须用**新统一域名**（示例）：
 
 **Portal `portal/.env`**
 
@@ -387,6 +403,7 @@ SESSION_COOKIE_DOMAIN=
 CORS_ORIGINS=https://innogreen.dqhermes.kdns.fr
 PMO_PUBLIC_URL=https://innogreen.dqhermes.kdns.fr/pmo/
 QCC_PUBLIC_URL=https://innogreen.dqhermes.kdns.fr/qcc/
+SH_EIA_PUBLIC_URL=https://innogreen.dqhermes.kdns.fr/eia/
 ```
 
 **PMO `web/.env`**
@@ -398,6 +415,7 @@ PMO_SESSION_COOKIE_DOMAIN=
 PMO_PORTAL_BASE_URL=http://127.0.0.1:8001
 PMO_PORTAL_WEB_URL=https://innogreen.dqhermes.kdns.fr
 PMO_CORS_ORIGINS=https://innogreen.dqhermes.kdns.fr
+PMO_PUBLIC_BASE=/pmo
 ```
 
 并重建前端（路径前缀）：
@@ -420,12 +438,23 @@ QCC_PORTAL_WEB_URL=https://innogreen.dqhermes.kdns.fr
 QCC_PUBLIC_BASE=/qcc
 ```
 
-`SESSION_SECRET` / `PMO_SESSION_SECRET` / `QCC_SESSION_SECRET` **三者必须相同**。  
+**sh_eia `.env`**
+
+```
+SH_EIA_HTTPS_ONLY=true
+SH_EIA_SESSION_COOKIE_NAME=innogreen_session
+SH_EIA_SESSION_COOKIE_DOMAIN=
+SH_EIA_PORTAL_BASE_URL=http://127.0.0.1:8001
+SH_EIA_PORTAL_WEB_URL=https://innogreen.dqhermes.kdns.fr
+SH_EIA_PUBLIC_BASE=/eia
+```
+
+`SESSION_SECRET` / `PMO_SESSION_SECRET` / `QCC_SESSION_SECRET` / `SH_EIA_SESSION_SECRET` **必须相同**。  
 `SESSION_COOKIE_DOMAIN` **必须留空**（同域路径共享 cookie，不要写成 `.dqhermes.kdns.fr`）。
 
-改完后重启 Portal、PMO、qcc、nginx。
+改完后重启 Portal、PMO、qcc、sh_eia、nginx。
 
-若还没合并用户，先做上一节「生产账号合并清单」，再把 PMO/qcc 的 `*_PORTAL_BASE_URL` 配上以启用 SSO。
+若还没合并用户，先做上一节「生产账号合并清单」，再把各应用的 `*_PORTAL_BASE_URL` 配上以启用 SSO。
 
 ---
 
@@ -435,9 +464,10 @@ QCC_PUBLIC_BASE=/qcc
 |---|------|------|
 | 1 | 打开 `https://innogreen…/` | Portal 登录页 |
 | 2 | 登录成功 | 地址栏仍是同一域名；开发者工具 Cookie 有 `innogreen_session`（Secure） |
-| 3 | 点进 PMO 或打开 `/pmo/` | 不用再登录；能正常用 |
+| 3 | 点进 PMO 或打开 `/pmo/` | 不用再登录；能正常用；顶栏有「返回门户」 |
 | 4 | 打开 `/qcc/` | 不用再登录；能正常用 |
-| 5 | Portal 点退出 | 再开 `/pmo/` `/qcc/` 会要求重新登录 |
+| 4b | 打开 `/eia/`（或直连 sh_eia） | 不用再登录；能正常用 |
+| 5 | Portal 点退出 | 再开 `/pmo/` `/qcc/` `/eia/` 会要求重新登录 |
 | 6 | 打开旧 `https://pmo.…/` | 301 到 `https://innogreen…/pmo/…` |
 | 7 | 打开旧 `https://qcc.…/` | 301 到 `https://innogreen…/qcc/…` |
 | 8 | 无痕窗口不应先出现 Cloudflare Access 登录 | 只有 Portal 登录 |
@@ -454,7 +484,7 @@ QCC_PUBLIC_BASE=/qcc
 
 ### 不推荐的做法（了解即可）
 
-继续用两个子域名 + `SESSION_COOKIE_DOMAIN=.你的根域` 跨子域共享 cookie：能做，但 cookie 作用域更大、配置更容易错。本项目默认推荐 **单域名 + `/pmo` `/qcc` 路径**。
+继续用两个子域名 + `SESSION_COOKIE_DOMAIN=.你的根域` 跨子域共享 cookie：能做，但 cookie 作用域更大、配置更容易错。本项目默认推荐 **单域名 + `/pmo` `/qcc` `/eia` 路径**。
 
 ## 生产账号合并清单（已有 PMO / qcc / sh_eia 用户时）
 

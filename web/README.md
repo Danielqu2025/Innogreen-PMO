@@ -48,6 +48,21 @@ npm run dev
 - 界面: http://127.0.0.1:5173
 - 登录：使用管理员分配的账号密码（或通过 `PMO_BOOTSTRAP_ADMIN_*` 启动后用 bootstrap admin 登录）
 
+## Portal SSO（可选）
+
+与统一门户共用 session 时，在 `web/.env` 配置：
+
+```
+PMO_PORTAL_BASE_URL=http://127.0.0.1:8001
+PMO_PORTAL_WEB_URL=http://127.0.0.1:8788
+PMO_SESSION_SECRET=<与 portal SESSION_SECRET 相同>
+PMO_SESSION_COOKIE_NAME=innogreen_session
+```
+
+- 留空 `PMO_PORTAL_BASE_URL` → 回退本地 `users` 表（pytest 默认）
+- 同域 `/pmo/` 部署：前端 `VITE_BASE=/pmo/ npm run build`；详见 [deploy/SSO.md](../deploy/SSO.md)、[portal/README.md](../portal/README.md)
+- 壳层：顶栏「返回门户 / 账号管理 / 退出」；`≤960` 侧栏抽屉、`≤720` 顶栏图标化
+
 ## 路由
 
 | 路径 | 说明 |

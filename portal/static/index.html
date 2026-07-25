@@ -456,15 +456,36 @@
       .page { grid-template-columns: 1fr; }
       .main { padding: 28px 20px 48px; }
       .apps-grid { grid-template-columns: 1fr; }
-      .topbar { padding: 0 16px; height: 64px; }
+      .topbar {
+        padding: 0 12px 0 8px;
+        height: 64px;
+        gap: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 1200;
+      }
+      .brand { flex: 1; min-width: 0; }
       .brand-logo-wrap,
-      .brand-logo-wrap img { height: 44px; max-width: 160px; }
-      .brand-text strong { font-size: 19px; }
+      .brand-logo-wrap img { height: 40px; max-width: 120px; }
+      .brand-text strong { font-size: 16px; }
+      .hero h1 { font-size: 26px; }
+      .hero p { font-size: 15px; }
+      .section-title h2 { font-size: 22px; }
+    }
+    @media (max-width: 720px) {
+      .brand-text strong { font-size: 15px; }
+      .hero { margin-bottom: 28px; padding-bottom: 20px; }
     }
   </style>
 </head>
 <body>
+  <div class="shell-sidebar-backdrop" id="sidebar-backdrop" hidden></div>
   <header class="topbar">
+    <button type="button" class="shell-nav-toggle" id="nav-toggle" aria-label="打开菜单" aria-expanded="false" aria-controls="app-sidebar">
+      <span class="shell-nav-toggle-bar"></span>
+      <span class="shell-nav-toggle-bar"></span>
+      <span class="shell-nav-toggle-bar"></span>
+    </button>
     <a class="brand" href="/">
       <span class="brand-logo-wrap">
         <img src="/static/logo.jpg" alt="INNOGREEN">
@@ -477,7 +498,8 @@
   </header>
 
   <div class="page">
-    <aside class="shell-sidebar">
+    <aside class="shell-sidebar" id="app-sidebar">
+      <div class="shell-sidebar-brand">菜单</div>
       <div class="shell-sidebar-top">
         <div id="sidebar-user"></div>
 
@@ -695,6 +717,33 @@
       await fetch(API + '/api/auth/logout', { method: 'POST', credentials: 'include' });
       showLoginPrompt();
     }
+
+    function openNavDrawer() {
+      document.body.classList.add('shell-nav-open');
+      const toggle = document.getElementById('nav-toggle');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      if (backdrop) backdrop.hidden = false;
+    }
+    function closeNavDrawer() {
+      document.body.classList.remove('shell-nav-open');
+      const toggle = document.getElementById('nav-toggle');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      if (backdrop) backdrop.hidden = true;
+    }
+    function toggleNavDrawer() {
+      if (document.body.classList.contains('shell-nav-open')) closeNavDrawer();
+      else openNavDrawer();
+    }
+    document.getElementById('nav-toggle')?.addEventListener('click', toggleNavDrawer);
+    document.getElementById('sidebar-backdrop')?.addEventListener('click', closeNavDrawer);
+    document.getElementById('side-links')?.addEventListener('click', (e) => {
+      if (e.target.closest('a') && window.matchMedia('(max-width: 960px)').matches) closeNavDrawer();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeNavDrawer();
+    });
 
     checkSession();
   </script>

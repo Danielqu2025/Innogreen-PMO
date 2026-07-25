@@ -1,7 +1,8 @@
-/* 三端共用：顶栏右侧「账号管理 / 退出」——勿各自改，改完请同步到
+/* 四端共用：顶栏右侧账户按钮 —— 改完请同步到
  * portal/static/shell-top-actions.css
  * web/frontend/src/layout/shell-top-actions.css
  * qcc/static/shell-top-actions.css
+ * Scrapling/examples/sh_eia/app/static/shell-top-actions.css
  */
 
 .shell-top-actions {
@@ -40,6 +41,7 @@
   box-shadow: none;
   appearance: none;
   -webkit-appearance: none;
+  position: relative;
 }
 
 .shell-top-actions .shell-top-btn:hover,
@@ -68,4 +70,36 @@
   height: 1em;
   display: block;
   fill: currentColor;
+}
+
+/* 手机：只留图标，文案仍可读给读屏 */
+@media (max-width: 720px) {
+  .shell-top-actions {
+    gap: 14px;
+  }
+
+  .shell-top-actions .shell-top-btn {
+    gap: 0;
+    min-width: 22px;
+    text-decoration: none !important;
+  }
+
+  .shell-top-actions .shell-top-btn > span:not(.shell-top-btn-icon),
+  .shell-top-actions .shell-top-btn .top-btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .shell-top-actions .shell-top-btn-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+  }
 }

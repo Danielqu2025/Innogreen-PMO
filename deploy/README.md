@@ -4,7 +4,7 @@
 - 公网：**https://pmo.dqhermes.kdns.fr/**
 - 后端：`http://127.0.0.1:8000`（仅本机，不对外）
 
-> **同域 SSO（Portal + PMO + qcc）**：见 [SSO.md](SSO.md) 与 [nginx.innogreen-sso.conf](nginx.innogreen-sso.conf)。
+> **同域 SSO（Portal + PMO + qcc + sh_eia）**：见 [SSO.md](SSO.md) 与 [nginx.innogreen-sso.conf](nginx.innogreen-sso.conf)。应用角色统一为 admin/operator/viewer。
 
 ---
 

@@ -3,6 +3,8 @@
  * web/frontend/src/layout/shell-sidebar.css
  * qcc/static/shell-sidebar.css
  * Scrapling/examples/sh_eia/app/static/shell-sidebar.css
+ *
+ * 断点：≤960 侧栏改抽屉（body.shell-nav-open / body.nav-open）
  */
 
 .shell-sidebar {
@@ -38,7 +40,7 @@
   background: var(--shell-sidebar-bg);
 }
 
-/* 纯 aside 用法（Portal / qcc） */
+/* 纯 aside 用法（Portal / qcc / PMO / sh_eia） */
 aside.shell-sidebar {
   padding: 36px 28px 28px;
   display: flex;
@@ -91,7 +93,6 @@ aside.shell-sidebar {
   color: var(--shell-muted);
 }
 
-/* 快捷入口标题 */
 .shell-sidebar-label {
   font-size: 13px;
   font-weight: 700;
@@ -101,7 +102,6 @@ aside.shell-sidebar {
   margin: 0 0 16px;
 }
 
-/* 链接列表 */
 .shell-side-list {
   list-style: none;
   margin: 0 0 32px;
@@ -201,7 +201,6 @@ button.shell-side-link {
   color: var(--shell-accent);
 }
 
-/* 子菜单（PMO 设置） */
 .shell-side-group-children {
   display: none;
   flex-direction: column;
@@ -230,7 +229,6 @@ button.shell-side-link {
   transform: rotate(90deg);
 }
 
-/* 底部说明 */
 .shell-notice {
   border: 1px solid var(--shell-accent);
   background: var(--shell-white);
@@ -254,17 +252,119 @@ button.shell-side-link {
   color: var(--shell-muted);
 }
 
-/* Portal 窄屏：侧栏改为通栏堆叠（qcc 抽屉覆盖见各自 style.css） */
+/* ===== 汉堡按钮 + 遮罩（桌面隐藏） ===== */
+.shell-nav-toggle,
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shell-nav-toggle-bar,
+.nav-toggle-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: #fff;
+  border-radius: 1px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+body.shell-nav-open .shell-nav-toggle-bar:nth-child(1),
+body.nav-open .nav-toggle-bar:nth-child(1),
+body.shell-nav-open .nav-toggle-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+body.shell-nav-open .shell-nav-toggle-bar:nth-child(2),
+body.nav-open .nav-toggle-bar:nth-child(2),
+body.shell-nav-open .nav-toggle-bar:nth-child(2) {
+  opacity: 0;
+}
+
+body.shell-nav-open .shell-nav-toggle-bar:nth-child(3),
+body.nav-open .nav-toggle-bar:nth-child(3),
+body.shell-nav-open .nav-toggle-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.shell-sidebar-backdrop,
+.sidebar-backdrop {
+  display: none;
+}
+
+/* 平板 + 手机：侧栏抽屉（不再通栏堆叠占竖屏） */
 @media (max-width: 960px) {
+  .shell-nav-toggle,
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .shell-sidebar-backdrop,
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1290;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  body.shell-nav-open .shell-sidebar-backdrop,
+  body.shell-nav-open .sidebar-backdrop,
+  body.nav-open .shell-sidebar-backdrop,
+  body.nav-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .shell-sidebar-backdrop[hidden],
+  .sidebar-backdrop[hidden] {
+    display: none !important;
+  }
+
   aside.shell-sidebar {
-    position: static;
-    top: auto;
-    height: auto;
-    min-height: 0;
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--shell-line);
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    z-index: 1300;
+    width: min(300px, 86vw);
+    height: 100vh;
+    height: 100dvh;
     padding: 24px 20px;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    box-shadow: none;
+    border-right: 1px solid var(--shell-line);
+    align-self: auto;
+    overflow: hidden;
+  }
+
+  body.shell-nav-open,
+  body.nav-open {
+    overflow: hidden;
+  }
+
+  body.shell-nav-open aside.shell-sidebar,
+  body.nav-open aside.shell-sidebar {
+    transform: translateX(0);
+    box-shadow: 8px 0 30px rgba(15, 23, 42, 0.25);
+  }
+
+  .shell-sidebar-brand {
+    display: block;
   }
 
   .shell-sidebar-bottom {

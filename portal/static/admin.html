@@ -68,12 +68,6 @@
       white-space: nowrap;
       color: #fff;
     }
-    @media (max-width: 720px) {
-      .topbar { padding: 0 16px; height: 64px; }
-      .brand-logo-wrap,
-      .brand-logo-wrap img { height: 44px; max-width: 160px; }
-      .brand-text strong { font-size: 19px; }
-    }
     .wrap { max-width: 1180px; margin: 24px auto; padding: 0 16px 40px; }
     .card {
       background: #fff;
@@ -216,6 +210,24 @@
     }
     .modal h2 { font-size: 17px; margin-bottom: 4px; }
     .modal .foot { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+
+    @media (max-width: 960px) {
+      .topbar { padding: 0 12px 0 8px; height: 64px; gap: 10px; }
+      .brand { flex: 1; min-width: 0; }
+      .brand-logo-wrap,
+      .brand-logo-wrap img { height: 40px; max-width: 120px; }
+      .brand-text strong { font-size: 16px; }
+      .wrap { margin: 16px auto; padding: 0 12px 32px; }
+    }
+    @media (max-width: 720px) {
+      .brand-text strong { font-size: 15px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar input, .toolbar select, .toolbar input.search { width: 100%; min-width: 0; }
+      .form-grid { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+      .modal { max-width: 100%; }
+    }
   </style>
 </head>
 <body>

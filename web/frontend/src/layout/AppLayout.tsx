@@ -110,6 +110,7 @@ export default function AppLayout() {
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm] = Form.useForm<{ current: string; next: string }>();
   const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -127,6 +128,23 @@ export default function AppLayout() {
   useEffect(() => {
     if (settingsOpen) setSettingsExpanded(true);
   }, [settingsOpen]);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [loc.pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle("shell-nav-open", navOpen);
+    return () => document.body.classList.remove("shell-nav-open");
+  }, [navOpen]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const onChangePassword = async () => {
     try {
@@ -155,7 +173,25 @@ export default function AppLayout() {
 
   return (
     <Layout className="pmo-shell">
+      <div
+        className="shell-sidebar-backdrop"
+        hidden={!navOpen}
+        onClick={() => setNavOpen(false)}
+        aria-hidden={!navOpen}
+      />
       <Header className="pmo-topbar">
+        <button
+          type="button"
+          className="shell-nav-toggle"
+          aria-label={navOpen ? "关闭菜单" : "打开菜单"}
+          aria-expanded={navOpen}
+          aria-controls="pmo-sidebar"
+          onClick={() => setNavOpen((v) => !v)}
+        >
+          <span className="shell-nav-toggle-bar" />
+          <span className="shell-nav-toggle-bar" />
+          <span className="shell-nav-toggle-bar" />
+        </button>
         <div className="pmo-brand">
           <span className="pmo-brand-logo-wrap">
             <img src={logoUrl} alt="INNOGREEN" />
@@ -218,7 +254,8 @@ export default function AppLayout() {
 
       {/* 与 Portal/qcc 同结构：aside.shell-sidebar（不用 Ant Sider，避免 wrapper 导致账号卡错位） */}
       <div className="pmo-body">
-        <aside className="shell-sidebar">
+        <aside className="shell-sidebar" id="pmo-sidebar">
+          <div className="shell-sidebar-brand">菜单</div>
           <div className="shell-sidebar-top">
             {user && (
               <div className="shell-user-box">
@@ -231,7 +268,13 @@ export default function AppLayout() {
               </div>
             )}
             <div className="shell-sidebar-label">快捷入口</div>
-            <ul className="shell-side-list">
+            <ul
+              className="shell-side-list"
+              onClick={(e) => {
+                const t = e.target as HTMLElement;
+                if (t.closest("a.shell-side-link")) setNavOpen(false);
+              }}
+            >
               <li>
                 <SideLink
                   to="/ops"
