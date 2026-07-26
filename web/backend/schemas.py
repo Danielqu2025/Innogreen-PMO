@@ -158,6 +158,38 @@ class DashboardPhaseBuckets(BaseModel):
     operation_projects: int = 0
 
 
+class ComplianceCellOut(BaseModel):
+    """三评三同时矩阵单元格：来自 project_progress 真实状态。"""
+
+    status: str  # pass | doing | overdue | blocker | todo | none
+    task_id: int | None = None
+    task_code: str | None = None
+    task_name: str | None = None
+    planned_end: str | None = None
+    overdue_days: int | None = None
+    note: str | None = None
+
+
+class ComplianceColumnOut(BaseModel):
+    key: str
+    label: str
+    sub: str
+    codes: list[str]
+
+
+class ComplianceRowOut(BaseModel):
+    project_id: int
+    project_code: str
+    short_name: str | None = None
+    current_stage_name: str | None = None
+    cells: dict[str, ComplianceCellOut]
+
+
+class ComplianceMatrixOut(BaseModel):
+    columns: list[ComplianceColumnOut] = []
+    rows: list[ComplianceRowOut] = []
+
+
 class DashboardSummary(BaseModel):
     total_projects: int
     by_status: dict[str, int]
@@ -167,6 +199,7 @@ class DashboardSummary(BaseModel):
     delayed_tasks: list[DelayedTaskOut] = []
     counts: DashboardCounts = DashboardCounts()
     phase_buckets: DashboardPhaseBuckets = DashboardPhaseBuckets()
+    compliance_matrix: ComplianceMatrixOut = ComplianceMatrixOut()
 
 
 class PitfallOut(BaseModel):

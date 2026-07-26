@@ -14,6 +14,29 @@ def test_dashboard_summary_shape(viewer_client: TestClient):
     assert "delayed_tasks" in body
     assert "counts" in body
     assert "phase_buckets" in body
+    assert "compliance_matrix" in body
+    matrix = body["compliance_matrix"]
+    assert "columns" in matrix and "rows" in matrix
+    assert len(matrix["columns"]) == 7
+    labels = [c["label"] for c in matrix["columns"]]
+    assert "环境影响评价" in labels
+    assert "试生产方案评审" in labels
+    assert "竣工安全验收" in labels
+    assert "职业病防护设计" not in labels
+    assert "职业病设施竣工验收" not in labels
+    if matrix["rows"]:
+        row = matrix["rows"][0]
+        assert "cells" in row
+        for col in matrix["columns"]:
+            assert col["key"] in row["cells"]
+            assert row["cells"][col["key"]]["status"] in {
+                "pass",
+                "doing",
+                "overdue",
+                "blocker",
+                "todo",
+                "none",
+            }
     assert set(body["counts"]) >= {
         "blocker_projects",
         "delayed_projects",

@@ -403,6 +403,36 @@ export type DelayedTask = {
   note: string | null;
 };
 
+export type ComplianceCell = {
+  status: "pass" | "doing" | "overdue" | "blocker" | "todo" | "none";
+  task_id: number | null;
+  task_code: string | null;
+  task_name: string | null;
+  planned_end: string | null;
+  overdue_days: number | null;
+  note: string | null;
+};
+
+export type ComplianceColumn = {
+  key: string;
+  label: string;
+  sub: string;
+  codes: string[];
+};
+
+export type ComplianceRow = {
+  project_id: number;
+  project_code: string;
+  short_name: string | null;
+  current_stage_name: string | null;
+  cells: Record<string, ComplianceCell>;
+};
+
+export type ComplianceMatrix = {
+  columns: ComplianceColumn[];
+  rows: ComplianceRow[];
+};
+
 export type DashboardSummary = {
   total_projects: number;
   by_status: Record<string, number>;
@@ -420,6 +450,7 @@ export type DashboardSummary = {
     construction_projects: number;
     operation_projects: number;
   };
+  compliance_matrix: ComplianceMatrix;
 };
 
 export type Pitfall = {

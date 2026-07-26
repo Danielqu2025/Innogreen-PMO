@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session, joinedload
 from models import ProgressJournal, ProjectProgress, ProjectProfile, StageMap, TaskDetail
 from schemas import (
     BlockerOut,
+    ComplianceCellOut,
+    ComplianceColumnOut,
+    ComplianceMatrixOut,
+    ComplianceRowOut,
     DashboardCounts,
     DashboardPhaseBuckets,
     DashboardProjectOut,
@@ -26,6 +30,52 @@ ACCESS_STAGE_IDS = frozenset({0, 1})
 CONSTRUCTION_STAGE_IDS = frozenset({2, 3, 4, 5, 6, 7})
 OPERATION_STAGE_IDS = frozenset({8, 9})
 
+# 三评三同时列映射（task_code 以当前 task_detail 为准）
+COMPLIANCE_COLUMNS: tuple[ComplianceColumnOut, ...] = (
+    ComplianceColumnOut(
+        key="safety_eval",
+        label="安全预评价",
+        sub="安评 · 3.2.3/4 + 3.2.7",
+        codes=["3.2.3", "3.2.4", "3.2.7"],
+    ),
+    ComplianceColumnOut(
+        key="safety_design",
+        label="安全设施设计专篇",
+        sub="安设 · 3.2.5/6",
+        codes=["3.2.5", "3.2.6"],
+    ),
+    ComplianceColumnOut(
+        key="env_eval",
+        label="环境影响评价",
+        sub="环评 · 3.3.1/2/3",
+        codes=["3.3.1", "3.3.2", "3.3.3"],
+    ),
+    ComplianceColumnOut(
+        key="fire",
+        label="消防验收",
+        sub="6.4.2",
+        codes=["6.4.2"],
+    ),
+    ComplianceColumnOut(
+        key="trial_review",
+        label="试生产方案评审",
+        sub="试生产 · 7.1.1/2/3",
+        codes=["7.1.1", "7.1.2", "7.1.3"],
+    ),
+    ComplianceColumnOut(
+        key="safety_accept",
+        label="竣工安全验收",
+        sub="三同时 · 8.2.1",
+        codes=["8.2.1"],
+    ),
+    ComplianceColumnOut(
+        key="env_accept",
+        label="竣工环保验收",
+        sub="三同时 · 8.2.2",
+        codes=["8.2.2"],
+    ),
+)
+
 
 def _parse_date(value: str | None) -> date | None:
     if not value:
@@ -35,6 +85,114 @@ def _parse_date(value: str | None) -> date | None:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _compliance_cell(
+    rows: list[tuple[ProjectProgress, TaskDetail]],
+    today: date,
+) -> ComplianceCellOut:
+    """把同一合规列下的多条进度收成一个单元格。
+
+    优先级：卡点 > 逾期 > 进行中 > 待开始 > 已通过 > 无记录。
+    """
+    if not rows:
+        return ComplianceCellOut(status="none")
+
+    def pack(
+        status: str,
+        pg: ProjectProgress,
+        td: TaskDetail,
+        overdue: int | None = None,
+    ) -> ComplianceCellOut:
+        pe = _parse_date(pg.planned_end)
+        return ComplianceCellOut(
+            status=status,
+            task_id=td.task_id,
+            task_code=td.task_code,
+            task_name=td.task_name,
+            planned_end=pe.isoformat() if pe else None,
+            overdue_days=overdue,
+            note=pg.blocker_note or pg.notes,
+        )
+
+    for pg, td in rows:
+        if pg.status == "卡点":
+            pe = _parse_date(pg.planned_end)
+            overdue = (today - pe).days if pe and pe < today else None
+            return pack("blocker", pg, td, overdue)
+
+    overdue_candidates: list[tuple[int, ProjectProgress, TaskDetail]] = []
+    for pg, td in rows:
+        if pg.status in DONE_STATUSES:
+            continue
+        pe = _parse_date(pg.planned_end)
+        if pe is not None and pe < today:
+            overdue_candidates.append(((today - pe).days, pg, td))
+    if overdue_candidates:
+        overdue_candidates.sort(key=lambda x: x[0], reverse=True)
+        days, pg, td = overdue_candidates[0]
+        return pack("overdue", pg, td, days)
+
+    for pg, td in rows:
+        if pg.status == "进行中":
+            return pack("doing", pg, td)
+
+    for pg, td in rows:
+        if pg.status == "待开始":
+            return pack("todo", pg, td)
+
+    if all(pg.status in DONE_STATUSES for pg, _ in rows):
+        # 取编号最大的已完成任务，便于跳到该节点
+        pg, td = max(rows, key=lambda item: item[1].task_code or "")
+        return pack("pass", pg, td)
+
+    pg, td = rows[0]
+    return pack("todo", pg, td)
+
+
+def _build_compliance_matrix(
+    db: Session,
+    project_outs: list[DashboardProjectOut],
+    today: date,
+) -> ComplianceMatrixOut:
+    all_codes = [code for col in COMPLIANCE_COLUMNS for code in col.codes]
+    progress_rows = db.execute(
+        select(ProjectProgress, TaskDetail)
+        .join(TaskDetail, TaskDetail.task_id == ProjectProgress.task_id)
+        .where(
+            TaskDetail.is_active == 1,
+            TaskDetail.task_code.in_(all_codes),
+        )
+    ).all()
+
+    by_project: dict[int, list[tuple[ProjectProgress, TaskDetail]]] = {}
+    for pg, td in progress_rows:
+        by_project.setdefault(pg.project_id, []).append((pg, td))
+
+    rows: list[ComplianceRowOut] = []
+    for project in project_outs:
+        items = by_project.get(project.project_id, [])
+        cells: dict[str, ComplianceCellOut] = {}
+        for col in COMPLIANCE_COLUMNS:
+            matched = [
+                (pg, td)
+                for pg, td in items
+                if td.task_code in col.codes
+            ]
+            # 同列内按 task_code 排序，保证展示稳定
+            matched.sort(key=lambda item: item[1].task_code or "")
+            cells[col.key] = _compliance_cell(matched, today)
+        rows.append(
+            ComplianceRowOut(
+                project_id=project.project_id,
+                project_code=project.project_code,
+                short_name=project.short_name,
+                current_stage_name=project.current_stage_name,
+                cells=cells,
+            )
+        )
+
+    return ComplianceMatrixOut(columns=list(COMPLIANCE_COLUMNS), rows=rows)
 
 
 def build_dashboard_summary(db: Session) -> DashboardSummary:
@@ -216,4 +374,5 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
             construction_projects=construction_n,
             operation_projects=operation_n,
         ),
+        compliance_matrix=_build_compliance_matrix(db, project_outs, today),
     )
