@@ -796,6 +796,7 @@ def list_blockers(db: Session = Depends(get_db)) -> list[BlockerOut]:
 @router.get("/pitfalls", response_model=list[PitfallOut])
 def list_pitfalls(
     stage: str | None = None,
+    task: str | None = None,
     impact: str | None = None,
     q: str | None = Query(None),
     db: Session = Depends(get_db),
@@ -805,6 +806,8 @@ def list_pitfalls(
         query = query.where(
             PitfallGuide.stage_ref.like(f"%{escape_like(stage)}%", escape="\\")
         )
+    if task:
+        query = query.where(PitfallGuide.task_ref == task)
     if impact:
         query = query.where(PitfallGuide.impact_level == impact)
     if q:

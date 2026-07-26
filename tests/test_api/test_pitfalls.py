@@ -108,3 +108,36 @@ def test_create_pitfall_minimal(operator_client):
         },
     )
     assert response.status_code == 201
+
+
+def test_list_pitfalls_filter_by_stage_and_task(operator_client):
+    created = operator_client.post(
+        "/api/ops/pitfalls",
+        json={
+            "stage_ref": STAGE,
+            "task_ref": "3.1",
+            "wrong_action": "filter-stage-task 错",
+            "right_action": "filter-stage-task 对",
+            "impact_level": "中",
+        },
+    )
+    assert created.status_code == 201, created.text
+    pid = created.json()["pitfall_id"]
+
+    by_stage = operator_client.get("/api/ops/pitfalls", params={"stage": STAGE})
+    assert by_stage.status_code == 200
+    assert any(p["pitfall_id"] == pid for p in by_stage.json())
+
+    by_task = operator_client.get("/api/ops/pitfalls", params={"task": "3.1"})
+    assert by_task.status_code == 200
+    assert any(p["pitfall_id"] == pid for p in by_task.json())
+
+    by_other = operator_client.get("/api/ops/pitfalls", params={"task": "3.2"})
+    assert by_other.status_code == 200
+    assert all(p["pitfall_id"] != pid for p in by_other.json())
+
+    conn = sqlite3.connect(TEST_DB)
+    conn.execute("DELETE FROM stage_pitfall_ref WHERE pitfall_id=?", (pid,))
+    conn.execute("DELETE FROM pitfall_guide WHERE pitfall_id=?", (pid,))
+    conn.commit()
+    conn.close()
