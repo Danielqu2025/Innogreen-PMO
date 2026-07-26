@@ -3,6 +3,7 @@
   http://127.0.0.1:8788/        → Portal :8001
   http://127.0.0.1:8788/pmo/    → PMO    :8800
   http://127.0.0.1:8788/qcc/    → qcc    :8765
+  http://127.0.0.1:8788/eia/    → sh_eia :8080
 
 用法：
   python scripts/local_sso_proxy.py
@@ -21,6 +22,7 @@ from starlette.routing import Route
 PORTAL = "http://127.0.0.1:8001"
 PMO = "http://127.0.0.1:8800"
 QCC = "http://127.0.0.1:8765"
+EIA = "http://127.0.0.1:8080"
 LISTEN = ("127.0.0.1", 8788)
 
 HOP_BY_HOP = {
@@ -54,6 +56,8 @@ async def _forward(request: Request, upstream: str, path: str) -> Response:
         headers["x-forwarded-prefix"] = "/pmo"
     elif upstream == QCC:
         headers["x-forwarded-prefix"] = "/qcc"
+    elif upstream == EIA:
+        headers["x-forwarded-prefix"] = "/eia"
 
     body = await request.body()
     client: httpx.AsyncClient = request.app.state.client
@@ -91,11 +95,15 @@ async def dispatch(request: Request) -> Response:
         return Response(status_code=307, headers={"location": "/pmo/"})
     if path == "/qcc":
         return Response(status_code=307, headers={"location": "/qcc/"})
+    if path == "/eia":
+        return Response(status_code=307, headers={"location": "/eia/"})
 
     if path.startswith("/pmo/"):
         return await _forward(request, PMO, path[4:] or "/")
     if path.startswith("/qcc/"):
         return await _forward(request, QCC, path[4:] or "/")
+    if path.startswith("/eia/"):
+        return await _forward(request, EIA, path[4:] or "/")
     return await _forward(request, PORTAL, path)
 
 
@@ -123,5 +131,5 @@ app = Starlette(
 
 if __name__ == "__main__":
     host, port = LISTEN
-    print(f"[local-sso-proxy] http://{host}:{port}/  → portal/pmo/qcc")
+    print(f"[local-sso-proxy] http://{host}:{port}/  → portal/pmo/qcc/eia")
     uvicorn.run(app, host=host, port=port, log_level="info")

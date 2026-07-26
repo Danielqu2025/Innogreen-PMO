@@ -144,7 +144,9 @@ innogreen-pmo/
 │   ├── init_db.py               # Database initialization (idempotent)
 │   ├── import_excel.py          # Excel → DB import
 │   ├── backup_db.py             # Backup DB to data/backups/
-│   └── verify_phase_a.py        # Data verification checks
+│   ├── verify_phase_a.py        # Data verification checks
+│   ├── merge_users_to_portal.py # PMO/qcc/sh_eia 用户合并进 Portal（dry-run 支持）
+│   └── local_sso_proxy.py       # 本机同域 SSO 试用代理（无 nginx 时，:8788）
 │
 ├── tests/                       # pytest API tests (TestClient)
 │   ├── conftest.py              # session-scoped app, isolated test_api.db
@@ -152,7 +154,11 @@ innogreen-pmo/
 │
 ├── .github/workflows/ci.yml     # CI: pytest (py3.12) + npm build (node20)
 │
-└── deploy/                      # Production: systemd units, nginx, backup timer
+├── deploy/                      # Production: systemd units, nginx, backup timer
+│   ├── SSO.md                   # 同域 SSO 部署（路径分流 + Cloudflare Tunnel 迁移 + 账号合并清单）
+│   └── nginx.innogreen-sso.conf # :8788 按路径 /pmo/ /qcc/ /eia/ 分流到各应用
+│
+├── portal/                      # IAM Portal（IdP）：统一身份 + 按应用授权 + SSO（详见下文「Portal」）
 │
 └── web/                         # Phase C web app
     ├── README.md                # Phase C runbook (routes, env, tests, backup)

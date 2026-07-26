@@ -145,10 +145,9 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
     session_cookie=settings.session_cookie_name,
-    # SameSite=None 强制浏览器在所有场景下发送 cookie（包括 POST→302→GET
-    # 跟随）。鸿蒙浏览器在 SameSite=Lax 下偶发不发送刚 Set-Cookie 的 Secure
-    # cookie。None + Secure 在 HTTPS 部署下安全无副作用（Cookie 仅走 HTTPS）。
-    same_site="none",
+    # 生产 HTTPS：SameSite=None + Secure（鸿蒙等对 Lax+Secure 的 POST→302 跟进更稳）。
+    # 本机 HTTP：None 无 Secure 会被现代浏览器直接丢弃，改用 Lax。
+    same_site="none" if settings.https_only else "lax",
     https_only=settings.https_only,
     domain=settings.session_cookie_domain or None,
     max_age=60 * 60 * 24 * 7,  # 7 天
