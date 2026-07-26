@@ -21,8 +21,12 @@ from schemas import (
     ProjectIssueFlags,
 )
 from services.progress_service import ensure_current_stages
+from services.settings_service import (
+    get_journal_alert,
+    is_journal_stalled,
+    journal_alert_label,
+)
 
-STALL_DAYS = 14
 DONE_STATUSES = frozenset({"已完成", "已跳过"})
 # Dashboard 阶段分布与阶段地图一致，但不含「公用工程及服务类合同签定」
 DASHBOARD_EXCLUDE_STAGE_IDS = frozenset({4})
@@ -197,7 +201,10 @@ def _build_compliance_matrix(
 
 def build_dashboard_summary(db: Session) -> DashboardSummary:
     today = date.today()
-    stall_before = (today - timedelta(days=STALL_DAYS)).isoformat()
+    alert_rule = get_journal_alert(db)
+    alert_out = alert_rule.model_copy(
+        update={"label": journal_alert_label(alert_rule)}
+    )
 
     projects = ensure_current_stages(
         db,
@@ -315,11 +322,14 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
         last_week = journal_max.get(p.project_id)
         is_blocker = p.project_id in blocker_project_ids
         is_delayed = p.project_id in delayed_project_ids
-        is_stalled = False
-        if p.project_status == "进行中":
-            if last_week is None or str(last_week) < stall_before:
-                is_stalled = True
-                stalled_project_ids.add(p.project_id)
+        is_stalled = is_journal_stalled(
+            project_status=p.project_status,
+            last_week=str(last_week) if last_week else None,
+            rule=alert_rule,
+            today=today,
+        )
+        if is_stalled:
+            stalled_project_ids.add(p.project_id)
 
         stage_name = None
         if p.current_stage:
@@ -375,4 +385,5 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
             operation_projects=operation_n,
         ),
         compliance_matrix=_build_compliance_matrix(db, project_outs, today),
+        journal_alert=alert_out,
     )

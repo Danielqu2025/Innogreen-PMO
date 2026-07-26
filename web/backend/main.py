@@ -138,6 +138,25 @@ def ensure_audit_immutable_triggers() -> None:
     print("[migrate] audit_log append-only triggers ensured")
 
 
+def ensure_app_settings_table() -> None:
+    """旧库升级：补 app_settings 表。"""
+    import sqlite3
+
+    from config import get_settings
+
+    sql_path = Path(__file__).resolve().parents[2] / "sql" / "app_settings.sql"
+    if not sql_path.exists():
+        return
+    db_path = get_settings().db_path
+    raw_conn = sqlite3.connect(str(db_path))
+    try:
+        raw_conn.executescript(sql_path.read_text(encoding="utf-8"))
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
+    print("[migrate] app_settings table ensured")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_task_is_active_column()
@@ -146,6 +165,7 @@ async def lifespan(_app: FastAPI):
     ensure_project_is_active_column()
     ensure_project_full_name_column()
     ensure_pitfall_task_ref_column()
+    ensure_app_settings_table()
     ensure_bootstrap_admin()
     yield
 

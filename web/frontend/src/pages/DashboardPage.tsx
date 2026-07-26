@@ -9,6 +9,7 @@ import {
   type DashboardSummary,
   type DelayedTask,
 } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import "./DashboardPage.css";
 
 const STAGES = [
@@ -224,6 +225,7 @@ function ComplianceMatrixPanel({ matrix }: { matrix: ComplianceMatrix }) {
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("attention");
@@ -413,12 +415,23 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-kpi is-warning">
             <span>
-              周报异常 <Tag>机制</Tag>
+              周报异常{" "}
+              {user?.role === "admin" ? (
+                <Link to="/ops/settings/alerts">
+                  <Tag color="processing">{data.journal_alert?.label || "机制"}</Tag>
+                </Link>
+              ) : (
+                <Tag>{data.journal_alert?.label || "机制"}</Tag>
+              )}
             </span>
             <strong>
               {counts.stalled_projects}<i>/{data.total_projects}</i>
             </strong>
-            <small>未回写或超过停滞阈值</small>
+            <small>
+              {data.journal_alert?.enabled === false
+                ? "预警已关闭"
+                : "未回写或超过停滞阈值"}
+            </small>
           </div>
         </div>
 

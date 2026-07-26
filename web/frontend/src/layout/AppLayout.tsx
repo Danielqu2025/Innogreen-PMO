@@ -37,6 +37,7 @@ function resolveSelectedKey(pathname: string): string {
   if (pathname.startsWith("/ops/users")) return "/ops/users";
   if (pathname.startsWith("/ops/settings/export")) return "/ops/settings/export";
   if (pathname.startsWith("/ops/settings/import")) return "/ops/settings/import";
+  if (pathname.startsWith("/ops/settings/alerts")) return "/ops/settings/alerts";
   return "/ops";
 }
 
@@ -330,6 +331,13 @@ export default function AppLayout() {
                           icon={<SideIconList />}
                           title="任务清单"
                           active={selected === "/ops/tasks"}
+                          child
+                        />
+                        <SideLink
+                          to="/ops/settings/alerts"
+                          icon={<SideIconWarning />}
+                          title="预警机制"
+                          active={selected === "/ops/settings/alerts"}
                           child
                         />
                         {ssoEnabled ? (

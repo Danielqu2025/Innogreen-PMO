@@ -171,3 +171,14 @@ class User(Base):
     is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[str | None] = mapped_column(Text)
+
+
+class AppSetting(Base):
+    """系统键值配置（JSON）。"""
+
+    __tablename__ = "app_settings"
+
+    setting_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value_json: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[str | None] = mapped_column(Text)

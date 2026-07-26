@@ -190,6 +190,17 @@ class ComplianceMatrixOut(BaseModel):
     rows: list[ComplianceRowOut] = []
 
 
+class JournalAlertSettings(BaseModel):
+    """周报异常判定规则（管理员可在设置页调整）。"""
+
+    enabled: bool = True
+    statuses: list[str] = ["进行中"]
+    mode: str = "calendar_weeks"  # calendar_weeks | rolling_days
+    threshold: int = 1
+    count_missing: bool = True
+    label: str | None = None  # 只读摘要，服务端填充
+
+
 class DashboardSummary(BaseModel):
     total_projects: int
     by_status: dict[str, int]
@@ -200,6 +211,7 @@ class DashboardSummary(BaseModel):
     counts: DashboardCounts = DashboardCounts()
     phase_buckets: DashboardPhaseBuckets = DashboardPhaseBuckets()
     compliance_matrix: ComplianceMatrixOut = ComplianceMatrixOut()
+    journal_alert: JournalAlertSettings | None = None
 
 
 class PitfallOut(BaseModel):

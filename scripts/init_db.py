@@ -122,6 +122,10 @@ def init_database(db_path: str | None = None, excel_path: str | None = None) -> 
         exec_sql_file(cursor, SQL_DIR / "progress_journal.sql", required=False)
         log("Progress journal table created")
 
+        log("Creating app_settings table...")
+        exec_sql_file(cursor, SQL_DIR / "app_settings.sql", required=False)
+        log("App settings table created")
+
         # 旧库升级：task_detail.is_active（schema.sql 已含该列时跳过）
         cols = [r[1] for r in cursor.execute("PRAGMA table_info(task_detail)")]
         if "is_active" not in cols:

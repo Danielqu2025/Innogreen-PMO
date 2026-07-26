@@ -24,6 +24,7 @@ const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
 const TaskCatalogPage = lazy(() => import("./pages/TaskCatalogPage"));
 const DataExportPage = lazy(() => import("./pages/DataExportPage"));
 const DataImportPage = lazy(() => import("./pages/DataImportPage"));
+const AlertSettingsPage = lazy(() => import("./pages/AlertSettingsPage"));
 const TenantPlaceholderPage = lazy(() => import("./pages/TenantPlaceholderPage"));
 
 const Fallback = <div>加载中...</div>;
@@ -108,6 +109,10 @@ export default function App() {
                 <Route
                   path="settings/import"
                   element={withSuspense(<DataImportPage />)}
+                />
+                <Route
+                  path="settings/alerts"
+                  element={withSuspense(<AlertSettingsPage />)}
                 />
               </Route>
             </Route>

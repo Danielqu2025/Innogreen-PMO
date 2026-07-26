@@ -451,7 +451,29 @@ export type DashboardSummary = {
     operation_projects: number;
   };
   compliance_matrix: ComplianceMatrix;
+  journal_alert?: JournalAlertSettings | null;
 };
+
+export type JournalAlertSettings = {
+  enabled: boolean;
+  statuses: string[];
+  mode: "calendar_weeks" | "rolling_days" | string;
+  threshold: number;
+  count_missing: boolean;
+  label?: string | null;
+};
+
+export async function getJournalAlertSettings(): Promise<JournalAlertSettings> {
+  const r = await api.get<JournalAlertSettings>("/api/ops/settings/journal-alert");
+  return r.data;
+}
+
+export async function updateJournalAlertSettings(
+  body: Omit<JournalAlertSettings, "label">,
+): Promise<JournalAlertSettings> {
+  const r = await api.put<JournalAlertSettings>("/api/ops/settings/journal-alert", body);
+  return r.data;
+}
 
 export type Pitfall = {
   pitfall_id: number;

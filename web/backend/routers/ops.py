@@ -21,6 +21,7 @@ from schemas import (
     DashboardSummary,
     DbImportResultOut,
     ImportSummaryOut,
+    JournalAlertSettings,
     JournalCreate,
     JournalOut,
     JournalUpdate,
@@ -40,6 +41,8 @@ from schemas import (
 from services.dashboard_service import build_dashboard_summary
 from services.critical_path import build_critical_path, get_project_or_none
 from services import journal_service
+from services import settings_service
+from services.audit import log_action
 from services.pitfall_service import create_pitfall
 from services.progress_service import (
     ensure_current_stages,
@@ -947,6 +950,37 @@ def qcc_expiring_qualifications(
 @router.get("/dashboard/summary", response_model=DashboardSummary)
 def dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummary:
     return build_dashboard_summary(db)
+
+
+@router.get("/settings/journal-alert", response_model=JournalAlertSettings)
+def get_journal_alert_settings(
+    _user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> JournalAlertSettings:
+    rule = settings_service.get_journal_alert(db)
+    return rule.model_copy(update={"label": settings_service.journal_alert_label(rule)})
+
+
+@router.put("/settings/journal-alert", response_model=JournalAlertSettings)
+def put_journal_alert_settings(
+    body: JournalAlertSettings,
+    request: Request,
+    user: AdminUser,
+    db: Session = Depends(get_db),
+) -> JournalAlertSettings:
+    saved = settings_service.put_journal_alert(db, body, actor=user.username)
+    log_action(
+        db,
+        user.username,
+        "UPDATE",
+        "settings",
+        None,
+        payload={"key": "journal_alert", **saved.model_dump()},
+        ip_address=get_real_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    return saved.model_copy(update={"label": settings_service.journal_alert_label(saved)})
 
 
 @router.get("/export/excel")
