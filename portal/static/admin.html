@@ -150,6 +150,16 @@
     .btn:hover { background: #1d4ed8; }
     .btn.ghost { background: #fff; color: #374151; border-color: #d1d5db; }
     .btn.ghost:hover { background: #f9fafb; border-color: #9ca3af; }
+    .status { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; }
+    .status.enabled { background: #dcfce7; color: #166534; }
+    .status.disabled { background: #fee2e2; color: #991b1b; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 24px; transition: .2s; }
+    .switch .slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    .switch input:checked + .slider { background: #0b5fff; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+    .switch input:focus + .slider { box-shadow: 0 0 0 2px rgba(11, 95, 255, 0.3); }
     .btn.danger { background: #fff; color: #dc2626; border-color: #f0b4b4; }
     .btn.danger:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
     .btn.sm { padding: 5px 12px; font-size: 12.5px; }
@@ -261,6 +271,7 @@
         <button class="tab active" data-tab="users" onclick="switchTab('users')">用户</button>
         <button class="tab" data-tab="pending" onclick="switchTab('pending')">待授权<span class="count" id="pending-count">0</span></button>
         <button class="tab" data-tab="audit" onclick="switchTab('audit')">审计日志</button>
+        <button class="tab" data-tab="visibility" onclick="switchTab('visibility')">应用中心</button>
       </div>
 
       <!-- 用户 Tab -->
@@ -407,6 +418,31 @@
           </table>
         </div>
       </div>
+
+      <!-- 应用中心可见性 Tab -->
+      <div id="panel-visibility" class="hidden">
+        <p class="muted" style="margin:8px 0 14px">
+          控制哪些应用显示在统一门户首页的工作台卡片和侧边栏快捷入口。
+          关闭后，对应应用的授权用户仍可正常登录（直接访问 URL），只是从工作台看不到。
+        </p>
+        <div class="toolbar">
+          <button class="btn ghost" onclick="reloadVisibility()">刷新</button>
+        </div>
+        <div id="visibility-msg" class="msg" style="margin-top:0;margin-bottom:8px"></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>应用</th>
+                <th>代码</th>
+                <th>说明</th>
+                <th style="width:140px">工作台可见</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-visibility"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -486,6 +522,7 @@
     let me = null;
     let allUsers = [];
     let auditLogs = [];
+    let visibilityApps = [];
     let currentTab = 'users';
 
     async function api(path, opts = {}) {
@@ -546,8 +583,10 @@
       document.getElementById('panel-users').classList.toggle('hidden', name !== 'users');
       document.getElementById('panel-pending').classList.toggle('hidden', name !== 'pending');
       document.getElementById('panel-audit').classList.toggle('hidden', name !== 'audit');
+      document.getElementById('panel-visibility').classList.toggle('hidden', name !== 'visibility');
       if (name === 'audit' && !auditLogs.length) loadAudit();
       if (name === 'pending') renderPending();
+      if (name === 'visibility') reloadVisibility();  // 总是 reload，看实时数据
     }
 
     function renderStats() {
@@ -862,6 +901,79 @@
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       location.href = '/login';
+    }
+
+    // ---- 应用中心可见性 ----
+    function escapeAttr(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
+
+    async function reloadVisibility() {
+      const msg = document.getElementById('visibility-msg');
+      msg.textContent = '加载中…';
+      msg.className = 'msg';
+      try {
+        visibilityApps = await api('/api/apps/visibility');
+        console.log('[visibility] loaded', visibilityApps.length, 'apps');
+        renderVisibility();
+        msg.textContent = visibilityApps.length
+          ? `已加载 ${visibilityApps.length} 个应用`
+          : '';
+        msg.className = 'msg ok';
+      } catch (e) {
+        console.error('[visibility] load failed:', e);
+        msg.textContent = '加载失败：' + e.message;
+        msg.className = 'msg err';
+      }
+    }
+
+    function renderVisibility() {
+      const tbody = document.getElementById('tbody-visibility');
+      if (!visibilityApps.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">暂无已注册的应用</td></tr>';
+        return;
+      }
+      tbody.innerHTML = visibilityApps.map(a => {
+        const visibleBadge = a.is_visible
+          ? '<span class="status enabled">可见</span>'
+          : '<span class="status disabled">隐藏</span>';
+        return `
+          <tr>
+            <td><strong>${escapeAttr(a.app_name)}</strong></td>
+            <td><code>${escapeAttr(a.app_code)}</code></td>
+            <td>${escapeAttr(a.description || '')}</td>
+            <td>
+              <label class="switch" title="切换可见性">
+                <input type="checkbox" data-app="${escapeAttr(a.app_code)}" ${a.is_visible ? 'checked' : ''} onchange="toggleVisibility('${escapeAttr(a.app_code)}', this.checked)">
+                <span class="slider"></span>
+              </label>
+              <span style="margin-left:8px">${visibleBadge}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function toggleVisibility(appCode, isVisible) {
+      const msg = document.getElementById('visibility-msg');
+      try {
+        await api(`/api/apps/visibility/${encodeURIComponent(appCode)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_visible: isVisible }),
+        });
+        msg.textContent = `${appCode} 已${isVisible ? '设为可见' : '隐藏'}`;
+        msg.className = 'msg ok';
+        const idx = visibilityApps.findIndex(a => a.app_code === appCode);
+        if (idx >= 0) visibilityApps[idx].is_visible = isVisible;
+        renderVisibility();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'msg err';
+        reloadVisibility();
+      }
     }
 
     // close modal on backdrop click

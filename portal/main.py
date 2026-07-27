@@ -11,7 +11,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from config import get_settings
 from database import Base, engine, init_db
-from models import User
+from models import AppVisibility, User  # noqa: F401  ← register for Base.metadata
 from routers import apps, auth
 
 settings = get_settings()

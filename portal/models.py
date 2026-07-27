@@ -70,3 +70,18 @@ class AuditLog(Base):
     payload: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str | None] = mapped_column(Text)
+
+
+class AppVisibility(Base):
+    """应用中心可见性（管理员可配）。
+
+    注册即默认可见；管理员可在 Portal /admin 关闭某个 app，
+    使其从首页应用卡片和侧边栏快捷入口消失（用户个人 membership
+    不受影响——只是工作台隐藏）。
+    """
+    __tablename__ = "app_visibility"
+
+    app_code: Mapped[str] = mapped_column(String(50), primary_key=True)
+    is_visible: Mapped[int] = mapped_column(default=1)
+    updated_at: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[str | None] = mapped_column(Text)
